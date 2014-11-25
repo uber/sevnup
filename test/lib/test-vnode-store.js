@@ -116,29 +116,30 @@ test('removeKeyFromVNode: do not persist when no change in state', function (ass
     assert.end();
 });
 
-test('loadVNodeKeySets: vnCache is set by vnodeKeySet param override', function (assert) {
+test('loadVNodeKeys: vnCache is set by vnodeKeySet param override', function (assert) {
     var vnodeStore = new VNodeStore();  
-    vnodeStore.loadVNodeKeySets(TEST_VNODE_CACHE);
+    vnodeStore.loadVNodeKeys(TEST_VNODE_NAME, [TEST_VNODE_KEY]);
     assert.equal(vnodeStore.vnCache[TEST_VNODE_NAME][TEST_VNODE_KEY], 
         TEST_VNODE_CACHE[TEST_VNODE_NAME][TEST_VNODE_KEY]);
     assert.end();
 });
 
-test('loadVNodeKeySets: vnCache is loaded properly from datastore override', function (assert) {
+test('loadVNodeKeys: vnCache is loaded properly from datastore override', function (assert) {
     var vnodeStore = new VNodeStore();
-    vnodeStore.loadVNodeKeySetsFromStore = function () {
-        return TEST_VNODE_CACHE;
+    vnodeStore.loadVNodeKeysFromStorage = function () {
+        return [TEST_VNODE_KEY];
     };
-    vnodeStore.loadVNodeKeySets();
+    vnodeStore.loadVNodeKeys(TEST_VNODE_NAME);
+    console.log('output: ' + JSON.stringify(vnodeStore.vnCache));
     assert.equal(vnodeStore.vnCache[TEST_VNODE_NAME][TEST_VNODE_KEY], 
         TEST_VNODE_CACHE[TEST_VNODE_NAME][TEST_VNODE_KEY]);
     assert.end();
 });
 
-test('loadVNodeKeySets: vnCache defaults to an empty object when no other sources are provided', 
+test('loadVNodeKeys: vnCache defaults to an empty object when no other sources are provided', 
         function (assert) {
     var vnodeStore = new VNodeStore();
-    vnodeStore.loadVNodeKeySets();
+    vnodeStore.loadVNodeKeys();
     assert.ok(vnodeStore.vnCache, 'vnCache exists');
     assert.notOk(vnodeStore.vnCache[TEST_VNODE_KEY]);
     assert.end();
@@ -156,5 +157,14 @@ test('_objectContainsKey: fails to find attribute in object when not present', f
     var vnodeStore = new VNodeStore();
     var obj = {'a': true};
     assert.notOk(vnodeStore._objectContainsKey(obj, 'b'));
+    assert.end();
+});
+
+test('_arrayToSet: changes an array into a hashMap with value true for each key', function (assert) {
+    var arr = ['a', 'b'];
+    var set = (new VNodeStore())._arrayToSet(arr);
+    assert.ok(set.a);
+    assert.ok(set.b);
+    assert.notOk(set.c);
     assert.end();
 });
