@@ -3,16 +3,13 @@
   "version": "1.0.0",
   "description": "Recover keys on virtual node ownership changes",
   "keywords": [],
-  "author": "joseph
- <joseph@uber.com
->",
+  "author": "joseph<joseph@uber.com>",
   "repository": "git://github.com/uber/sevnup.git",
   "main": "index",
   "homepage": "https://github.com/uber/sevnup",
   "bugs": {
     "url": "https://github.com/uber/sevnup/issues",
-    "email": "joseph@uber.com
-"
+    "email": "joseph@uber.com"
   },
   "dependencies": {
   },
