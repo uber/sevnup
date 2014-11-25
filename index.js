@@ -15,9 +15,6 @@ Sevnup.prototype.loadAllKeys = function loadAllKeys() {
             self.vnodeStore.loadVNodeKeys(vnodes[i]);
         }
     }
-    // TODO (joseph@): for key in vnodeStore, do operation.  if return false,
-    //     delete key.
-    
 };
 
 module.exports = Sevnup;

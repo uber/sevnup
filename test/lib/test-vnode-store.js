@@ -116,14 +116,6 @@ test('removeKeyFromVNode: do not persist when no change in state', function (ass
     assert.end();
 });
 
-test('loadVNodeKeys: vnCache is set by vnodeKeySet param override', function (assert) {
-    var vnodeStore = new VNodeStore();  
-    vnodeStore.loadVNodeKeys(TEST_VNODE_NAME, [TEST_VNODE_KEY]);
-    assert.equal(vnodeStore.vnCache[TEST_VNODE_NAME][TEST_VNODE_KEY], 
-        TEST_VNODE_CACHE[TEST_VNODE_NAME][TEST_VNODE_KEY]);
-    assert.end();
-});
-
 test('loadVNodeKeys: vnCache is loaded properly from datastore override', function (assert) {
     var vnodeStore = new VNodeStore();
     vnodeStore.loadVNodeKeysFromStorage = function () {
@@ -144,6 +136,10 @@ test('loadVNodeKeys: vnCache defaults to an empty object when no other sources a
     assert.notOk(vnodeStore.vnCache[TEST_VNODE_KEY]);
     assert.end();
 });
+
+//TODO(joseph@): Write test for both forEachKey false 
+
+//TODO(joseph@): Write test for forEachKey true
 
 
 test('_objectContainsKey: finds attribute in object when present', function (assert) {
