@@ -2,14 +2,12 @@ var VNodeStore = require('./lib/vnode-store.js');
 //TODO (joseph@): Config.
 var TOTAL_VNODES = 14;
 
-function Sevnup(hashRing, loadVNKeysFromStorage, persistKeyToVNode, persistRemoveKeyFromVNode) {
+function Sevnup(loadVNKeysFromStorage, persistKeyToVNode, persistRemoveKeyFromVNode) {
     var allVNodes = [];
     for (var i=0; i<TOTAL_VNODES; i++) {
         allVNodes.append(i);
     }
     this.allVNodes = allVNodes;
-    this.attachToRing(hashRing);
-    hashRing.on('ringStateChange', this.loadAllKeys);
     this.vnodeStore = new VNodeStore(loadVNKeysFromStorage, persistKeyToVNode, persistRemoveKeyFromVNode);
 }
 
