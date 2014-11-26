@@ -76,7 +76,7 @@ Sevnup.prototype.hashCode = function(string) {
     var hash = 0;
     var character;
     var length = string.length;
-    if (length != 0) {
+    if (length !== 0) {
         for (var i = 0; i < length; i++) {
             character   = string.charCodeAt(i);
             hash  = ((hash << 5) - hash) + character;
