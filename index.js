@@ -53,8 +53,37 @@ Sevnup.prototype.attachToRing = function attachToRing(hashRing) {
  * @param {string} vnodeName The name of the vnode to check.
  */
 Sevnup.prototype.iOwnVNode = function iOwnVNode(vnodeName) {
+    var self = this;
     var node = self.ringpop.lookup(vnodeName);
     return self.ringpop.whoami() === node;
+};
+
+/**
+ * Given a key, get the vnode it belongs to.  It can then be routed to the
+ * correct node, via looking up by vnode name.
+ * @param {string} key The key to match to a vnode.
+ */
+Sevnup.prototype.getVNodeForKey = function getVNodeForKey(key) {
+    return this.hashCode(key) % TOTAL_VNODES;
+};
+
+/**
+ * Given a string, turns it into a 32 bit integer.  To be moved to the utility
+ * class.  TODO(joseph@).
+ * @param {string} string the string to convert
+ */
+Sevnup.prototype.hashCode = function(string) {
+    var hash = 0;
+    var character;
+    var length = string.length;
+    if (length != 0) {
+        for (var i = 0; i < length; i++) {
+            character   = string.charCodeAt(i);
+            hash  = ((hash << 5) - hash) + character;
+            hash |= 0; 
+        }
+    }
+    return hash;
 };
 
 module.exports = Sevnup;
