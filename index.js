@@ -54,8 +54,8 @@ Sevnup.prototype.attachToRing = function attachToRing(hashRing) {
  */
 Sevnup.prototype.iOwnVNode = function iOwnVNode(vnodeName) {
     var self = this;
-    var node = self.ringpop.lookup(vnodeName);
-    return self.ringpop.whoami() === node;
+    var node = self.hashRing.lookup(vnodeName);
+    return self.hashRing.whoami() === node;
 };
 
 /**
