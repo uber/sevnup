@@ -51,7 +51,7 @@ Sevnup.prototype.attachToRing = function attachToRing(hashRing) {
     hashRing.lookup = function(key) {
         var vnode = sevnup.getVNodeForKey(key);
         var node = keyLookup(vnode);
-        if ( sevnup.hashring.whoami() == node ) {
+        if ( sevnup.hashring.whoami() === node ) {
             sevnup.addKeyToVNode(vnode, key);
         }
         return node;
