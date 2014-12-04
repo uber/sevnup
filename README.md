@@ -32,13 +32,17 @@ C -> {2}
 B -> {99,12}
 ```
 
+
+
 The first class 'keys' in this set are `A`,`C`,`B`.  Internally, sevnup considers
 these virtual node names: `1`, `2` and `3` are the keys that virtual node `A` owns.
 This is a library implementation detail that a user of sevnup shouldn't have to
 be concerned with.  A client only needs to be sure that it can persist
 a datastructure like the one above.
 
-### Load Virtual Node Keys
+
+
+### I. Load Virtual Node Keys
 If you want it to survive memory or process failure, you need to
 teach it how to persist such a set.  You can implement this in a datastore - or
 in memory cache - as you like, but the contract remains the same. First we need
@@ -58,7 +62,9 @@ sevnup.loadVNodeKeys = function(vnodeName) {
 }
 ```
 
-### Add A Key To A Virtual Node
+
+
+### II. Add A Key To A Virtual Node
 You need to be able to persist ownership of a key.  To do this, you need to
 provide a function that takes - as above - a `vnodeName` and a string value
 `key` that you want to be added.  In the example set above, if your function
@@ -86,7 +92,9 @@ sevnup.persistAddKeyToVNode = function(vnodeName, key) {
 };
 ```
 
-### Remove A Key from a Virtual Node
+
+
+### III. Remove A Key from a Virtual Node
 You need to also do the reverse.  This is simple.  In the same example, using
 set `A`, we will pseudocode the removal of the key.
 ```js
@@ -100,7 +108,8 @@ sevnup.persistRemoveKeyFromVNode = function(vnodeName, key) {
 };
 ```
 
-### The Business End
+
+### IV. The Business End
 Your code successfully manages state of the keys it owns, and will
 load and remove keys as they are dealt with.  But currently, you're not dealing
 with anything.  If - when your process comes up or is given a new set of keys
@@ -133,7 +142,9 @@ you wouldn't want to return true until you were done processing it.  If your
 application or node were to go down in the interim, no one would pick up where
 you left off.  So be sure to return `true` only once you're done recovering!
 
-### Finish
+
+
+### V. Finish
 Last, we make sure that we attach sevnup to the hashring implementation you are
 using.  This is simple:
 
