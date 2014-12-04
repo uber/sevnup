@@ -98,6 +98,7 @@ sevnup.persistRemoveKeyFromVNode = function(vnodeName, key) {
         delete vnodeKeys[key];
     }
 };
+```
 
 ### The Business End
 Your code successfully manages state of the keys it owns, and will
