@@ -44,8 +44,18 @@ Sevnup.prototype.loadAllKeys = function loadAllKeys() {
  * @param {object} hashRing A ringPop implementation of a hashring.
  */
 Sevnup.prototype.attachToRing = function attachToRing(hashRing) {
-    this.hashRing = hashRing;
-    hashRing.on('changed', this.loadAllKeys);
+    var sevnup = this;
+    sevnup.hashRing = hashRing;
+    hashRing.on('changed', sevnup.loadAllKeys);
+    var keyLookup = hashRing.lookup;
+    hashRing.lookup = function(key) {
+        var vnode = sevnup.getVNodeForKey(key);
+        var node = keyLookup(vnode);
+        if ( sevnup.hashring.whoami() === node ) {
+            sevnup.addKeyToVNode(vnode, key);
+        }
+        return node;
+    };
 };
 
 /**
@@ -54,8 +64,8 @@ Sevnup.prototype.attachToRing = function attachToRing(hashRing) {
  */
 Sevnup.prototype.iOwnVNode = function iOwnVNode(vnodeName) {
     var self = this;
-    var node = self.ringpop.lookup(vnodeName);
-    return self.ringpop.whoami() === node;
+    var node = self.hashRing.lookup(vnodeName);
+    return self.hashRing.whoami() === node;
 };
 
 /**
