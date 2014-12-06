@@ -1,6 +1,6 @@
 var VNodeStore = require('./lib/vnode-store.js');
 //TODO (joseph@): Config.
-var TOTAL_VNODES = 14;
+var DEFAULT_TOTAL_VNODES = 1000;
 
 /**
  * Constructor, takes all optional persistence function overrides but expects none.
@@ -12,10 +12,11 @@ var TOTAL_VNODES = 14;
  *  @param {function} persistRemoveKeyFromVNode The inverse of
  *      persistKeyToVNode, removes a key relation to a VNode in the store.
  */
-function Sevnup(loadVNKeysFromStorage, persistKeyToVNode, persistRemoveKeyFromVNode) {
+function Sevnup(totalVNodes, loadVNKeysFromStorage, persistKeyToVNode, persistRemoveKeyFromVNode) {
+    this.totalVNodes = totalVNodes ? totalVNodes : DEFAULT_TOTAL_VNODES;
     var allVNodes = [];
-    for (var i=0; i<TOTAL_VNODES; i++) {
-        allVNodes.append(i);
+    for (var i=0; i<this.totalVNodes; i++) {
+        allVNodes.push(i);
     }
     this.allVNodes = allVNodes;
     this.vnodeStore = new VNodeStore(loadVNKeysFromStorage, persistKeyToVNode, persistRemoveKeyFromVNode);
@@ -51,7 +52,7 @@ Sevnup.prototype.attachToRing = function attachToRing(hashRing) {
     hashRing.lookup = function(key) {
         var vnode = sevnup.getVNodeForKey(key);
         var node = keyLookup(vnode);
-        if ( sevnup.hashring.whoami() === node ) {
+        if ( sevnup.hashRing.whoami() === node ) {
             sevnup.addKeyToVNode(vnode, key);
         }
         return node;
@@ -74,7 +75,7 @@ Sevnup.prototype.iOwnVNode = function iOwnVNode(vnodeName) {
  * @param {string} key The key to match to a vnode.
  */
 Sevnup.prototype.getVNodeForKey = function getVNodeForKey(key) {
-    return this.hashCode(key) % TOTAL_VNODES;
+    return this.hashCode(key) % this.totalVNodes;
 };
 
 /**
