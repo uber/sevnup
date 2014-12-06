@@ -47,10 +47,12 @@ If you want it to survive memory or process failure, you need to
 teach it how to persist such a set.  You can implement this in a datastore - or
 in memory cache - as you like, but the contract remains the same. First we need
 to show sevnup how to load a set, given a key.  In the example above, a virtual
-node would be A, C, or B.  So we'll show it how to load the corresponding sets.
+k
+M
+node would be `A`, `C`, or `B`.  So we'll show it how to load the corresponding sets.
 
 ```js
-var sevnup = require("sevnup");
+var sevnup = require("sevnup")();
 
 /*
  * Note that this will return an array of keys fetched from the database with
@@ -79,7 +81,7 @@ sevnup. Note that we use a 'fake' set for performance reasons, instead of
 a javascript array.  In the future, arrays will be supported as well, but for
 now, sevnup expects a javascript 'set'.
 ```js
-var sevnup = require('sevnup');
+var sevnup = require('sevnup')();
 
 sevnup.persistAddKeyToVNode = function(vnodeName, key) {
     // Depending on datastore implementation, this can vary.  
@@ -98,7 +100,7 @@ sevnup.persistAddKeyToVNode = function(vnodeName, key) {
 You need to also do the reverse.  This is simple.  In the same example, using
 set `A`, we will pseudocode the removal of the key.
 ```js
-var sevnup = require('sevnup');
+var sevnup = require('sevnup')();
 
 sevnup.persistRemoveKeyFromVNode = function(vnodeName, key) {
     var vnodeKeys = datastore.getSet(vnodeName);
@@ -121,7 +123,7 @@ of a sudden you are now responsible for some of the objects it was dealing
 with.  For each of the objects you now need to take over, sevnup will call your
 recover function, where you can do what you like with your new objects.
 ```js
-var sevnup = require('sevnup');
+var sevnup = require('sevnup')();
 
 sevnup.recover = function(key) {
     var entityHandled = false;
@@ -149,7 +151,7 @@ Last, we make sure that we attach sevnup to the hashring implementation you are
 using.  This is simple:
 
 ```js
-var sevnup = require('sevnup');
+var sevnup = require('sevnup')();
 var hashring = require('myhashringimplementation');
 
 sevnup.attachToHashRing(hashring);
@@ -159,7 +161,7 @@ triggered when the state of the ring changes.
 
 Overall, this is what your starting code could look like:
 ```js
-var sevnup = require('sevnup');
+var sevnup = require('sevnup')();
 var hashring = require('myhashringimplementation');
 
 sevnup.loadVNodeKeys = function( vnodeName ) {
