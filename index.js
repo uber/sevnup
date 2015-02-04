@@ -11,14 +11,17 @@ var TOTAL_VNODES = 14;
  *      adds the relation to the datastore.
  *  @param {function} persistRemoveKeyFromVNode The inverse of
  *      persistKeyToVNode, removes a key relation to a VNode in the store.
+ *  @param {function} recoverKey The function to run on each key that is
+ *      recovered.
  */
-function Sevnup(loadVNKeysFromStorage, persistKeyToVNode, persistRemoveKeyFromVNode) {
+function Sevnup(loadVNKeysFromStorage, persistKeyToVNode, persistRemoveKeyFromVNode, recoverKey) {
     var allVNodes = [];
     for (var i=0; i<TOTAL_VNODES; i++) {
         allVNodes.append(i);
     }
     this.allVNodes = allVNodes;
-    this.vnodeStore = new VNodeStore(loadVNKeysFromStorage, persistKeyToVNode, persistRemoveKeyFromVNode);
+    this.vnodeStore = new VNodeStore(loadVNKeysFromStorage, persistKeyToVNode, 
+            persistRemoveKeyFromVNode, recoverKey);
 }
 
 /**
