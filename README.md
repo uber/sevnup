@@ -56,9 +56,9 @@ var sevnup = require("sevnup");
  * Note that this will return an array of keys fetched from the database with
  * this virtual node name.  In the example above, that could be A, C or B.
  */
-sevnup.loadVNodeKeys = function(vnodeName) {
+sevnup.loadVNodeKeys = function(vnodeName, onKeysLoaded) {
    // Fetch  all keys in the set that belong to vnodeName from your data store.
-   return [];
+   onKeysLoaded(err, allKeys);
 }
 ```
 
