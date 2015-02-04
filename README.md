@@ -50,13 +50,11 @@ to show sevnup how to load a set, given a key.  In the example above, a virtual
 node would be A, C, or B.  So we'll show it how to load the corresponding sets.
 
 ```js
-var sevnup = require("sevnup")();
-
 /*
  * Note that this will return an array of keys fetched from the database with
  * this virtual node name.  In the example above, that could be A, C or B.
  */
-sevnup.loadVNodeKeys = function(vnodeName, onKeysLoaded) {
+var loadVNodeKeys = function(vnodeName, onKeysLoaded) {
    // Fetch  all keys in the set that belong to vnodeName from your data store.
    onKeysLoaded(err, allKeys);
 }
