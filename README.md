@@ -144,7 +144,7 @@ using.  This is simple:
 var Sevnup = require('sevnup');
 var hashring = require('myhashringimplementation');
 
-var sevnup = new SevnUp(
+var sevnup = new Sevnup(
     loadVNodeKeys,
     persistKeyToVNode,
     persistRemoveKeyFromVNode,
