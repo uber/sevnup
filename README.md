@@ -50,15 +50,13 @@ to show sevnup how to load a set, given a key.  In the example above, a virtual
 node would be A, C, or B.  So we'll show it how to load the corresponding sets.
 
 ```js
-var sevnup = require("sevnup");
-
 /*
  * Note that this will return an array of keys fetched from the database with
  * this virtual node name.  In the example above, that could be A, C or B.
  */
-sevnup.loadVNodeKeys = function(vnodeName) {
+var loadVNodeKeys = function(vnodeName, onKeysLoaded) {
    // Fetch  all keys in the set that belong to vnodeName from your data store.
-   return [];
+   onKeysLoaded(err, allKeys);
 }
 ```
 
@@ -79,9 +77,7 @@ sevnup. Note that we use a 'fake' set for performance reasons, instead of
 a javascript array.  In the future, arrays will be supported as well, but for
 now, sevnup expects a javascript 'set'.
 ```js
-var sevnup = require('sevnup');
-
-sevnup.persistAddKeyToVNode = function(vnodeName, key) {
+var persistKeyToVNode = function(vnodeName, key) {
     // Depending on datastore implementation, this can vary.  
     // We'll use pseudo code below to make it more clear.
     var vnodeKeys = datastore.getSet(vnodeName);
@@ -98,9 +94,7 @@ sevnup.persistAddKeyToVNode = function(vnodeName, key) {
 You need to also do the reverse.  This is simple.  In the same example, using
 set `A`, we will pseudocode the removal of the key.
 ```js
-var sevnup = require('sevnup');
-
-sevnup.persistRemoveKeyFromVNode = function(vnodeName, key) {
+var persistRemoveKeyFromVNode = function(vnodeName, key) {
     var vnodeKeys = datastore.getSet(vnodeName);
     if( Object.prototype.hasOwnProperty(vnodeKeys, key) ) {
         delete vnodeKeys[key];
@@ -121,9 +115,7 @@ of a sudden you are now responsible for some of the objects it was dealing
 with.  For each of the objects you now need to take over, sevnup will call your
 recover function, where you can do what you like with your new objects.
 ```js
-var sevnup = require('sevnup');
-
-sevnup.recover = function(key) {
+var recover = function(key) {
     var entityHandled = false;
     var myEntity = datastore.getEntity(key);
     if( myEntity.state === 'terrible' ) {
@@ -149,40 +141,23 @@ Last, we make sure that we attach sevnup to the hashring implementation you are
 using.  This is simple:
 
 ```js
-var sevnup = require('sevnup');
+var Sevnup = require('sevnup');
 var hashring = require('myhashringimplementation');
+
+var sevnup = new Sevnup(
+    loadVNodeKeys,
+    persistKeyToVNode,
+    persistRemoveKeyFromVNode,
+    recover
+);
 
 sevnup.attachToHashRing(hashring);
 ```
 This assumes the hashring implementation has a 'changed' event that is
 triggered when the state of the ring changes.
 
-Overall, this is what your starting code could look like:
-```js
-var sevnup = require('sevnup');
-var hashring = require('myhashringimplementation');
-
-sevnup.loadVNodeKeys = function( vnodeName ) {
-    // return set.
-};
-
-sevnup.persistAddKeyToVNode = function( vnodeName, key ) {
-    // ...
-};
-
-sevnup.persistRemoveKeyFromVNode = function( vnodeName, key ) {
-    // ...
-};
-
-sevnup.recover = function( key ) {
-    /// return true/false
-};
-
-sevnup.attachToHashRing(hashring);
-```
-
-That's a full (sans implementation of the functions) set up of sevnup.  From
-then on, you can use your hashring as you always would, and know that whenever
+That's a full (sans implementation of the functions we talked about above) set up of sevnup.
+From then on, you can use your hashring as you always would, and know that whenever
 a node dies, the keys it was working on will be called in your `recover` method
 on another node.
 
