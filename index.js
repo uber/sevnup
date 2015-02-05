@@ -36,7 +36,7 @@ Sevnup.prototype.loadAllKeys = function loadAllKeys() {
     var vnodes = self.allVNodes;
     for (var i=0; i < vnodes.length; i++) {
         if (self.iOwnVNode(vnodes[i])) {
-            self.vnodeStore.loadVNodeKeys(vnodes[i]);
+            self.vnodeStore.loadVNodeKeys(vnodes[i], self.recover);
         }
     }
 };
