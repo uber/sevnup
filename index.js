@@ -12,9 +12,16 @@ var TOTAL_VNODES = 14;
  *  @param {function} persistRemoveKeyFromVNode The inverse of
  *      persistKeyToVNode, removes a key relation to a VNode in the store.
  *  @param {function} recoverKey The function to run on each key that is
- *      recovered.
+ *      recovered. Takes 'done' callback.
+ *  @param {function} releaseKey The function called when you release your
+ *      ownership of a key, for example if another node now owns it.  Cleanup.
+ *      Also takes a 'done' callback.
  */
-function Sevnup(loadVNKeysFromStorage, persistKeyToVNode, persistRemoveKeyFromVNode, recoverKey) {
+function Sevnup(loadVNKeysFromStorage,
+        persistKeyToVNode,
+        persistRemoveKeyFromVNode,
+        recoverKey,
+        releaseKey) {
     var allVNodes = [];
     for (var i=0; i<TOTAL_VNODES; i++) {
         allVNodes.append(i);
