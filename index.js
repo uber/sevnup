@@ -46,19 +46,16 @@ function Sevnup(loadVNKeysFromStorage,
 Sevnup.prototype.loadAllKeys = function loadAllKeys(done) {
     var self = this;
     var vnodes = self.allVNodes;
-    // Probably a fancier way to these two iterations, suggest away
-    var ownedVNodes = [];
-    for (var i=0; i < vnodes.length; i++) {
-        if (self.iOwnVNode(vnodes[i])) {
-            ownedVNodes.append(vnodes[i]);
-        }
-    }
 
     async.eachLimit(
         ownedVNodes,
         MAX_PARALLEL_TASKS,
-        function (vnode, done) {
-            self.vnodeStore.loadVNodeKeys(vnode, self.recover, done);
+        function (vnode, eachDone) {
+            if (self.iOwnVNode(vnode)) {
+                self.vnodeStore.loadVNodeKeys(vnode, self.recover, eachDone);
+            } else {
+                eachDone();
+            }
         },
         function (err) {
             done(err);
