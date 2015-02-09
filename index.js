@@ -49,20 +49,33 @@ Sevnup.prototype.loadAllKeys = function loadAllKeys() {
 };
 
 /**
+ * When you are done working on a key, or no longer want it within bookkeeping
+ * you can alert sevnup to forget it.  This notifies the ring that it doesn't
+ * need attention in the event this node goes down or hands off ownership.
+ * We want the service to be ignorant of vnodes so we rediscover the vnode.
+ * @param {string} key The key you have finished work on.
+ */
+Sevnup.prototype.workCompleteOnKey = function workCompleteOnKey(key) {
+    var self = this;
+    var vnode = self.getVNodeForKey(key);
+    self.vnodeStore.removeKeyFromVNode(vnode, key);
+};
+
+/**
  * Takes a hashRing and subscribes to the correct events to maintain VNode
  * ownership.
  * @param {object} hashRing A ringPop implementation of a hashring.
  */
 Sevnup.prototype.attachToRing = function attachToRing(hashRing) {
-    var sevnup = this;
-    sevnup.hashRing = hashRing;
-    hashRing.on('changed', sevnup.loadAllKeys);
+    var self = this;
+    self.hashRing = hashRing;
+    hashRing.on('changed', self.loadAllKeys);
     var keyLookup = hashRing.lookup;
     hashRing.lookup = function(key) {
-        var vnode = sevnup.getVNodeForKey(key);
+        var vnode = self.getVNodeForKey(key);
         var node = keyLookup(vnode);
-        if ( sevnup.hashring.whoami() === node ) {
-            sevnup.addKeyToVNode(vnode, key);
+        if ( self.hashring.whoami() === node ) {
+            self.addKeyToVNode(vnode, key);
         }
         return node;
     };
