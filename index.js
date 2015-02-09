@@ -1,6 +1,10 @@
+var async = require('async');
+
 var VNodeStore = require('./lib/vnode-store.js');
+
 //TODO (joseph@): Config.
 var TOTAL_VNODES = 14;
+var MAX_PARALLEL_TASKS = 5;
 
 /**
  * Constructor, takes all optional persistence function overrides but expects none.
@@ -37,15 +41,29 @@ function Sevnup(loadVNKeysFromStorage,
  * recovers 14 keys that the old owner of VNode B was working on, and prompts
  * the client via callback to recover each of those keys, leaving that to the
  * individual client's business logic.
+ * @param {function} done The callback when all keys have been loaded.
  */
-Sevnup.prototype.loadAllKeys = function loadAllKeys() {
+Sevnup.prototype.loadAllKeys = function loadAllKeys(done) {
     var self = this;
     var vnodes = self.allVNodes;
+    // Probably a fancier way to these two iterations, suggest away
+    var ownedVNodes = [];
     for (var i=0; i < vnodes.length; i++) {
         if (self.iOwnVNode(vnodes[i])) {
-            self.vnodeStore.loadVNodeKeys(vnodes[i], self.recover);
+            ownedVNodes.append(vnodes[i]);
         }
     }
+
+    async.eachLimit(
+        ownedVNodes,
+        MAX_PARALLEL_TASKS,
+        function (vnode, done) {
+            self.vnodeStore.loadVNodeKeys(vnode, self.recover, done);
+        },
+        function (err) {
+            done(err);
+        }
+    );
 };
 
 /**
@@ -54,11 +72,12 @@ Sevnup.prototype.loadAllKeys = function loadAllKeys() {
  * need attention in the event this node goes down or hands off ownership.
  * We want the service to be ignorant of vnodes so we rediscover the vnode.
  * @param {string} key The key you have finished work on.
+ * @param {function} done Optional callback if you want to listen to completion
  */
-Sevnup.prototype.workCompleteOnKey = function workCompleteOnKey(key) {
+Sevnup.prototype.workCompleteOnKey = function workCompleteOnKey(key, done) {
     var self = this;
     var vnode = self.getVNodeForKey(key);
-    self.vnodeStore.removeKeyFromVNode(vnode, key);
+    self.vnodeStore.removeKeyFromVNode(vnode, key, done);
 };
 
 /**
@@ -75,7 +94,9 @@ Sevnup.prototype.attachToRing = function attachToRing(hashRing) {
         var vnode = self.getVNodeForKey(key);
         var node = keyLookup(vnode);
         if ( self.hashring.whoami() === node ) {
-            self.addKeyToVNode(vnode, key);
+            self.vnodeStore.addKeyToVNode(vnode, key, function(err) {
+                //TODO (joseph): Logging logger log.
+            });
         }
         return node;
     };
