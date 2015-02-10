@@ -28,7 +28,7 @@ function Sevnup(loadVNKeysFromStorage,
         releaseKey) {
     var allVNodes = [];
     for (var i=0; i<TOTAL_VNODES; i++) {
-        allVNodes.append(i);
+        allVNodes.push(i);
     }
     this.allVNodes = allVNodes;
     this.vnodeStore = new VNodeStore(loadVNKeysFromStorage, persistKeyToVNode, 
