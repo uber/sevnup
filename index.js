@@ -32,7 +32,7 @@ function Sevnup(loadVNKeysFromStorage,
     }
     this.allVNodes = allVNodes;
     this.vnodeStore = new VNodeStore(loadVNKeysFromStorage, persistKeyToVNode, 
-            persistRemoveKeyFromVNode, recoverKey);
+            persistRemoveKeyFromVNode, recoverKey, releaseKey);
 }
 
 /**
@@ -50,7 +50,7 @@ Sevnup.prototype.loadAllKeys = function loadAllKeys(done) {
         MAX_PARALLEL_TASKS,
         function (vnode, eachDone) {
             if (self.iOwnVNode(vnode)) {
-                self.vnodeStore.loadVNodeKeys(vnode, self.recover, eachDone);
+                self.vnodeStore.loadVNodeKeys(vnode, eachDone);
             } else {
                 eachDone();
             }
@@ -118,7 +118,7 @@ Sevnup.prototype.getVNodeForKey = function getVNodeForKey(key) {
 
 /**
  * Given a string, turns it into a 32 bit integer.  To be moved to the utility
- * class.  TODO(joseph@).
+ * class.  TODO(joseph): move to utils.
  * @param {string} string the string to convert
  */
 Sevnup.prototype.hashCode = function(string) {
