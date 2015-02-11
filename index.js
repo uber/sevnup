@@ -84,11 +84,11 @@ Sevnup.prototype.attachToRing = function attachToRing(hashRing) {
     var self = this;
     self.hashRing = hashRing;
     hashRing.on('changed', self.loadAllKeys);
-    var keyLookup = hashRing.lookup;
+    var keyLookup = hashRing.lookup.bind(hashRing);
     hashRing.lookup = function(key) {
         var vnode = self.getVNodeForKey(key);
         var node = keyLookup(vnode);
-        if ( self.hashring.whoami() === node ) {
+        if ( self.hashRing.whoami() === node ) {
             self.vnodeStore.addKeyToVNode(vnode, key, function(err) {
                 //TODO (joseph): Logging logger log.
             });
