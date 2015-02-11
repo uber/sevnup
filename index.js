@@ -45,10 +45,8 @@ function Sevnup(loadVNKeysFromStorage,
  */
 Sevnup.prototype.loadAllKeys = function loadAllKeys(done) {
     var self = this;
-    var vnodes = self.allVNodes;
-
     async.eachLimit(
-        ownedVNodes,
+        self.allVNodes,
         MAX_PARALLEL_TASKS,
         function (vnode, eachDone) {
             if (self.iOwnVNode(vnode)) {
