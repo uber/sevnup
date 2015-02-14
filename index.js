@@ -2,10 +2,6 @@ var async = require('async');
 
 var VNodeStore = require('./lib/vnode-store.js');
 
-//TODO (joseph@): Config.
-var TOTAL_VNODES = 14;
-var MAX_PARALLEL_TASKS = 5;
-
 /**
  * Constructor, takes all optional persistence function overrides but expects none.
  * @constructor
@@ -22,11 +18,13 @@ var MAX_PARALLEL_TASKS = 5;
  *      Also takes a 'done' callback.
  */
 function Sevnup(persistenceService, recoverKey, releaseKey) {
-    var allVNodes = [];
-    for (var i=0; i<TOTAL_VNODES; i++) {
-        allVNodes.push(i);
+    // TODO: convert to constructor(options), take these too
+    this.vnodeCount = 14;
+    this.loadLimit = 5;
+    this.allVNodes = [];
+    for (var i=0; i<this.vnodeCount; i++) {
+        this.allVNodes.push(i);
     }
-    this.allVNodes = allVNodes;
     this.vnodeStore = new VNodeStore(persistenceService, recoverKey, releaseKey);
 }
 
@@ -40,20 +38,14 @@ function Sevnup(persistenceService, recoverKey, releaseKey) {
  */
 Sevnup.prototype.loadAllKeys = function loadAllKeys(done) {
     var self = this;
-    async.eachLimit(
-        self.allVNodes,
-        MAX_PARALLEL_TASKS,
-        function (vnode, eachDone) {
-            if (self.iOwnVNode(vnode)) {
-                self.vnodeStore.loadVNodeKeys(vnode, eachDone);
-            } else {
-                eachDone();
-            }
-        },
-        function (err) {
-            done(err);
+    async.eachLimit(self.allVNodes, self.loadLimit, eachVNode, done);
+    function eachVNode(vnode, done) {
+        if (self.iOwnVNode(vnode)) {
+            self.vnodeStore.loadVNodeKeys(vnode, done);
+        } else {
+            done();
         }
-    );
+    }
 };
 
 /**
@@ -77,14 +69,21 @@ Sevnup.prototype.workCompleteOnKey = function workCompleteOnKey(key, done) {
  */
 Sevnup.prototype.attachToRing = function attachToRing(hashRing) {
     var self = this;
+    if (self.hashRing) {
+        throw new Error('already attached to a hashRing');
+    }
     self.hashRing = hashRing;
-    hashRing.on('changed', self.loadAllKeys);
-    var keyLookup = hashRing.lookup.bind(hashRing);
-    hashRing.lookup = function(key) {
+    self.hashRing.on('changed', self.loadAllKeys);
+    self.originalHashRingLookup
+    self.origLookup = self.hashRing.lookup;
+    self.hashRing.lookup = function lookupKey(key) {
         var vnode = self.getVNodeForKey(key);
-        var node = keyLookup(vnode);
-        if ( self.hashRing.whoami() === node ) {
+        var node = self.origLookup.call(self.hashRing, vnode);
+        if (self.hashRing.whoami() === node) {
             self.vnodeStore.addKeyToVNode(vnode, key, function() {
+                // XXX this is why the hashRing lookup API should by async, so
+                // that any wrapped logic error can fail the entire lookup
+                // rather than needing to handle an error out of band
                 //TODO (joseph): Logging logger log. Function passes error
             });
         }
@@ -97,6 +96,8 @@ Sevnup.prototype.attachToRing = function attachToRing(hashRing) {
  * @param {string} vnodeName The name of the vnode to check.
  */
 Sevnup.prototype.iOwnVNode = function iOwnVNode(vnodeName) {
+    // XXX should use origLookup instead? or do we actually want the vnodeStore
+    // side-effect?
     var self = this;
     var node = self.hashRing.lookup(vnodeName);
     return self.hashRing.whoami() === node;
@@ -108,7 +109,7 @@ Sevnup.prototype.iOwnVNode = function iOwnVNode(vnodeName) {
  * @param {string} key The key to match to a vnode.
  */
 Sevnup.prototype.getVNodeForKey = function getVNodeForKey(key) {
-    return this.hashCode(key) % TOTAL_VNODES;
+    return this.hashCode(key) % this.vnodeCount;
 };
 
 /**
@@ -117,6 +118,8 @@ Sevnup.prototype.getVNodeForKey = function getVNodeForKey(key) {
  * @param {string} string the string to convert
  */
 Sevnup.prototype.hashCode = function(string) {
+    // XXX hy not use a natively implemented hash like farmhash instead? in
+    // fact this should be pluggable as an option to the constructor
     var hash = 0;
     var character;
     var length = string.length;
