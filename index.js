@@ -1,60 +1,29 @@
-var async = require('async');
-
 var VNodeStore = require('./lib/vnode-store.js');
 
-//TODO (joseph@): Config.
 var TOTAL_VNODES = 14;
-var MAX_PARALLEL_TASKS = 5;
+
+
 
 /**
  * Constructor, takes all optional persistence function overrides but expects none.
  * @constructor
- * @param {function} loadVNKeysFromStorage A method that takes a vnode and
+ * @param {function} persistenceService.loadVNodeKeysFromStorage A method that takes a vnode and
  *     the list of keys it owns, presumably recovered from a datastore.
- *  @param {function} persistKeyToVNode Given a key and a VNode, this function
+ *  @param {function} persistenceService.persistKeyToVNode Given a key and a VNode, this function
  *      adds the relation to the datastore.
- *  @param {function} persistRemoveKeyFromVNode The inverse of
+ *  @param {function} persistenceService.persistRemoveKeyFromVNode The inverse of
  *      persistKeyToVNode, removes a key relation to a VNode in the store.
- *  @param {function} recoverKey The function to run on each key that is
+ *  @param {function} persistenceService.recoverKey The function to run on each key that is
  *      recovered. Takes 'done' callback.
- *  @param {function} releaseKey The function called when you release your
+ *  @param {function} persistenceService.releaseKey The function called when you release your
  *      ownership of a key, for example if another node now owns it.  Cleanup.
  *      Also takes a 'done' callback.
  */
 function Sevnup(persistenceService, recoverKey, releaseKey) {
-    var allVNodes = [];
-    for (var i=0; i<TOTAL_VNODES; i++) {
-        allVNodes.push(i);
-    }
-    this.allVNodes = allVNodes;
     this.vnodeStore = new VNodeStore(persistenceService, recoverKey, releaseKey);
 }
 
-/**
- * Checks each VNode to see if the current node owns it, and if it does it
- * prompts recovery of each key.  For example, it finds that it owns VNode B,
- * recovers 14 keys that the old owner of VNode B was working on, and prompts
- * the client via callback to recover each of those keys, leaving that to the
- * individual client's business logic.
- * @param {function} done The callback when all keys have been loaded.
- */
-Sevnup.prototype.loadAllKeys = function loadAllKeys(done) {
-    var self = this;
-    async.eachLimit(
-        self.allVNodes,
-        MAX_PARALLEL_TASKS,
-        function (vnode, eachDone) {
-            if (self.iOwnVNode(vnode)) {
-                self.vnodeStore.loadVNodeKeys(vnode, eachDone);
-            } else {
-                eachDone();
-            }
-        },
-        function (err) {
-            done(err);
-        }
-    );
-};
+
 
 /**
  * When you are done working on a key, or no longer want it within bookkeeping
