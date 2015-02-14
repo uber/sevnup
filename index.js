@@ -21,18 +21,13 @@ var MAX_PARALLEL_TASKS = 5;
  *      ownership of a key, for example if another node now owns it.  Cleanup.
  *      Also takes a 'done' callback.
  */
-function Sevnup(loadVNKeysFromStorage,
-        persistKeyToVNode,
-        persistRemoveKeyFromVNode,
-        recoverKey,
-        releaseKey) {
+function Sevnup(persistenceService, recoverKey, releaseKey) {
     var allVNodes = [];
     for (var i=0; i<TOTAL_VNODES; i++) {
         allVNodes.push(i);
     }
     this.allVNodes = allVNodes;
-    this.vnodeStore = new VNodeStore(loadVNKeysFromStorage, persistKeyToVNode, 
-            persistRemoveKeyFromVNode, recoverKey, releaseKey);
+    this.vnodeStore = new VNodeStore(persistenceService, recoverKey, releaseKey);
 }
 
 /**
@@ -89,8 +84,8 @@ Sevnup.prototype.attachToRing = function attachToRing(hashRing) {
         var vnode = self.getVNodeForKey(key);
         var node = keyLookup(vnode);
         if ( self.hashRing.whoami() === node ) {
-            self.vnodeStore.addKeyToVNode(vnode, key, function(err) {
-                //TODO (joseph): Logging logger log.
+            self.vnodeStore.addKeyToVNode(vnode, key, function() {
+                //TODO (joseph): Logging logger log. Function passes error
             });
         }
         return node;

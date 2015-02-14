@@ -8,6 +8,25 @@ var TEST_VNODE_CACHE = {};
 TEST_VNODE_CACHE[TEST_VNODE_NAME] = {};
 TEST_VNODE_CACHE[TEST_VNODE_NAME][TEST_VNODE_KEY] = true;
 
+function setUpVNodeStoreWithKeys(vnodeName, testKey) {
+    var vnodeStore = new VNodeStore();
+    vnodeName = vnodeName || TEST_VNODE_NAME;
+    testKey = testKey || TEST_VNODE_KEY;
+    vnodeStore.persistKeyToVNode = function(vnode, key, callback) {
+        callback();
+    };
+    vnodeStore.persistRemoveKeyFromVNode = function(vnode, key, callback) {
+        callback();
+    };
+
+    vnodeStore.getVNodeKeysFromStorage = function(vnode, callback) {
+        callback([testKey]);
+    };
+    vnodeStore.vnCache[vnodeName] = {};
+    vnodeStore.vnCache[vnodeName][testKey] = true;
+    return vnodeStore;
+}
+
 test('addKeyToVNode: does not change vnode state when persist fails', function (assert) {
    var vnodeStore = new VNodeStore(); 
    vnodeStore.persistKeyToVNode = function() {
@@ -22,11 +41,14 @@ test('addKeyToVNode: does not change vnode state when persist fails', function (
 });
 
 test('addKeyToVNode: creates vnode in map automatically when first key from vnode', function (assert) {
-    var vnodeStore = new VNodeStore();
+    var vnodeStore = setUpVNodeStoreWithKeys();
+    delete vnodeStore.vnCache[TEST_VNODE_NAME];
     assert.notOk(vnodeStore.vnCache[TEST_VNODE_NAME]);
-    vnodeStore.addKeyToVNode(TEST_VNODE_NAME, TEST_VNODE_KEY);
-    assert.ok(vnodeStore.vnCache[TEST_VNODE_NAME]);
-    assert.end();
+    vnodeStore.addKeyToVNode(TEST_VNODE_NAME, TEST_VNODE_KEY, function(err) {
+        assert.notOk(err);
+        assert.ok(vnodeStore.vnCache[TEST_VNODE_NAME]);
+        assert.end();
+    });
 });
 
 test('addKeyToVNode: persists via callback after changing vnode state', function (assert) {
@@ -45,28 +67,27 @@ test('addKeyToVNode: persists via callback after changing vnode state', function
 });
 
 test('addKeyToVNode: do not persist when no change in state', function (assert) {
-    var vnodeStore = new VNodeStore();
+    var vnodeStore = setUpVNodeStoreWithKeys();
     var vnodeToPersist = TEST_VNODE_NAME;
     var keyToPersist = TEST_VNODE_KEY;
     var callCount = 0;
-    vnodeStore.persistKeyToVNode = function(vnodeName, key) {
+    delete vnodeStore.vnCache[vnodeToPersist];
+    vnodeStore.persistKeyToVNode = function(vnodeName, key, callback) {
         assert.equal(vnodeName, vnodeToPersist);
         assert.equal(key, keyToPersist);
         callCount++;
+        callback();
     };
-    vnodeStore.addKeyToVNode(vnodeToPersist, keyToPersist);
-    assert.equal(callCount, 1, 'persisted once');
-    vnodeStore.addKeyToVNode(vnodeToPersist, keyToPersist);
-    assert.equal(callCount, 1, 'still only persisted once');
-    assert.end();
+    vnodeStore.addKeyToVNode(vnodeToPersist, keyToPersist, function(err) {
+        assert.notOk(err);
+        assert.equal(callCount, 1, 'persisted once');
+        vnodeStore.addKeyToVNode(vnodeToPersist, keyToPersist, function(err) {
+            assert.notOk(err);
+            assert.equal(callCount, 1, 'still only persisted once');
+            assert.end();
+        });
+    });
 });
-
-function setUpVNodeStoreWithKeys(vnodeName, key) {
-    var vnodeStore = new VNodeStore();
-    vnodeStore.persistAddKeyToVNode = function() {};
-    vnodeStore.addKeyToVNode(vnodeName, key);
-    return vnodeStore;
-}
 
 test('removeKeyFromVNode: does not change vnode state when persist fails', function (assert) {
    var vnodeStore = setUpVNodeStoreWithKeys(TEST_VNODE_NAME, TEST_VNODE_KEY);
@@ -83,9 +104,11 @@ test('removeKeyFromVNode: does not change vnode state when persist fails', funct
 
 test('removeKeyFromVNode: removes key from vnode', function (assert) {
     var vnodeStore = setUpVNodeStoreWithKeys(TEST_VNODE_NAME);
-    vnodeStore.removeKeyFromVNode(TEST_VNODE_NAME, TEST_VNODE_KEY);
-    assert.notOk(vnodeStore.vnCache[TEST_VNODE_NAME][TEST_VNODE_KEY]);
-    assert.end();
+    vnodeStore.removeKeyFromVNode(TEST_VNODE_NAME, TEST_VNODE_KEY, function(err) {
+        assert.notOk(err);
+        assert.notOk(vnodeStore.vnCache[TEST_VNODE_NAME][TEST_VNODE_KEY]);
+        assert.end();
+    });
 });
 
 test('removeKeyFromVNode: persists via callback after changing vnode state', function (assert) {
@@ -102,40 +125,50 @@ test('removeKeyFromVNode: persists via callback after changing vnode state', fun
 });
 
 test('removeKeyFromVNode: do not persist when no change in state', function (assert) {
-    var vnodeStore = setUpVNodeStoreWithKeys(TEST_VNODE_NAME, TEST_VNODE_KEY);
+    var vnodeStore = setUpVNodeStoreWithKeys();
     var callCount = 0;
-    vnodeStore.persistRemoveKeyFromVNode = function(vnodeName, key) {
-        assert.equal(vnodeName, TEST_VNODE_NAME);
-        assert.equal(key, TEST_VNODE_KEY);
+    vnodeStore.persistRemoveKeyFromVNode = function(vnodeName, key, callback) {
+        assert.equal(vnodeName, TEST_VNODE_NAME, 'removing from proper vnode');
+        assert.equal(key, TEST_VNODE_KEY, 'removing proper key');
         callCount++;
+        callback();
     };
-    vnodeStore.removeKeyFromVNode(TEST_VNODE_NAME, TEST_VNODE_KEY);
-    assert.equal(callCount, 1, 'persisted once');
-    vnodeStore.removeKeyFromVNode(TEST_VNODE_NAME, TEST_VNODE_KEY);
-    assert.equal(callCount, 1, 'still only persisted once');
-    assert.end();
+    vnodeStore.removeKeyFromVNode(TEST_VNODE_NAME, TEST_VNODE_KEY, function(err) {
+        assert.notOk(err);
+        assert.equal(callCount, 1, 'persisted once');
+        vnodeStore.removeKeyFromVNode(TEST_VNODE_NAME, TEST_VNODE_KEY, function(err) {
+            assert.notOk(err);
+            assert.equal(callCount, 1, 'still only persisted once');
+            assert.end();
+        });
+    });
+
 });
 
 test('loadVNodeKeys: vnCache is loaded properly from datastore override', function (assert) {
     var vnodeStore = new VNodeStore();
-    vnodeStore.loadVNodeKeysFromStorage = function () {
-        return [TEST_VNODE_KEY];
+    vnodeStore.loadVNodeKeysFromStorage = function (vnode, callback) {
+        callback(undefined, [TEST_VNODE_KEY]);
     };
-    vnodeStore.loadVNodeKeys(TEST_VNODE_NAME);
-    console.log('output: ' + JSON.stringify(vnodeStore.vnCache));
-    assert.equal(vnodeStore.vnCache[TEST_VNODE_NAME][TEST_VNODE_KEY], 
-        TEST_VNODE_CACHE[TEST_VNODE_NAME][TEST_VNODE_KEY]);
-    assert.end();
+    vnodeStore.loadVNodeKeys(TEST_VNODE_NAME, function done() {
+        assert.equal(vnodeStore.vnCache[TEST_VNODE_NAME][TEST_VNODE_KEY],
+            TEST_VNODE_CACHE[TEST_VNODE_NAME][TEST_VNODE_KEY]);
+        assert.end();
+    });
 });
 
 test('loadVNodeKeys: vnCache defaults to an empty object when no other sources are provided', 
         function (assert) {
     var vnodeStore = new VNodeStore();
-    vnodeStore.loadVNodeKeys();
-    assert.ok(vnodeStore.vnCache, 'vnCache exists');
-    assert.notOk(vnodeStore.vnCache[TEST_VNODE_KEY]);
-    assert.end();
-});
+    vnodeStore.loadVNodeKeysFromStorage = function(vnode, callback) {
+       callback();
+    };
+    vnodeStore.loadVNodeKeys(TEST_VNODE_NAME, function done() {
+        assert.ok(vnodeStore.vnCache, 'vnCache exists');
+        assert.notOk(vnodeStore.vnCache[TEST_VNODE_KEY]);
+        assert.end();
+        });
+    });
 
 //TODO(joseph@): Write test for both forEachKey false 
 
