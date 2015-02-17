@@ -26,8 +26,8 @@ CacheStore.prototype.add = function add(vnode, key, done) {
 
 CacheStore.prototype.remove = function remove(vnode, key, done) {
     var set = this.cache[vnode];
-    // Set is loaded, key is either not present or marked deleted
-    // Or, market previously removed
+    // Set is loaded, key is not present.
+    // TODO if you want to get really fancy, store a tombstone on remove and check that too.
     if (set && !set.hasOwnProperty(key)) {
         return done();
     }
