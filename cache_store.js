@@ -7,16 +7,16 @@ function CacheStore(store) {
     this.cache = {};
 }
 
-CacheStore.prototype.add = function add(vnode, key, done) {
+CacheStore.prototype.addKey = function add(vnode, key, done) {
     var set = this.cache[vnode];
     if (!set) {
         // Hasn't been fully loaded into cache
-        return this.store.add(vnode, key, done);
+        return this.store.addKey(vnode, key, done);
     }
     if (set.hasOwnProperty(key)) {
         return done();
     }
-    this.store.add(vnode, key, function(err) {
+    this.store.addKey(vnode, key, function(err) {
         if (!err) {
             set[key] = true;
         }
@@ -24,14 +24,14 @@ CacheStore.prototype.add = function add(vnode, key, done) {
     });
 };
 
-CacheStore.prototype.remove = function remove(vnode, key, done) {
+CacheStore.prototype.removeKey = function remove(vnode, key, done) {
     var set = this.cache[vnode];
     // Set is loaded, key is not present.
     // TODO if you want to get really fancy, store a tombstone on remove and check that too.
     if (set && !set.hasOwnProperty(key)) {
         return done();
     }
-    this.store.remove(vnode, key, function(err) {
+    this.store.removeKey(vnode, key, function(err) {
         if (!err && set) {
             delete set[key];
         }
@@ -39,12 +39,12 @@ CacheStore.prototype.remove = function remove(vnode, key, done) {
     });
 };
 
-CacheStore.prototype.load = function load(vnode, done) {
+CacheStore.prototype.loadKeys = function load(vnode, done) {
     var self = this;
     if (this.cache[vnode]) {
         return done(null, Object.keys(this.cache[vnode]));
     }
-    this.store.load(vnode, function(err, keys) {
+    this.store.loadKeys(vnode, function(err, keys) {
         if (!err) {
             var set = self.cache[vnode] = {};
             keys.forEach(function(key) {

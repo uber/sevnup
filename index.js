@@ -41,7 +41,7 @@ Sevnup.prototype._attachToRing = function _attachToRing() {
         var vnode = self._getVNodeForKey(key);
         var node = self.hashRingLookup(vnode);
         if (self.hashRing.whoami() === node) {
-            self.store.add(vnode, key, function(err) {
+            self.store.addKey(vnode, key, function(err) {
                 if (err) {
                     self.logger.error("Sevnup.sevnupLookup failed to persist key", {
                         vnode: vnode,
@@ -105,11 +105,11 @@ Sevnup.prototype._onRingStateChange = function _onRingStateChange() {
 Sevnup.prototype._forEachKeyInVNodes = function _forEachKeyInVNodes(vnodes, onKey, done) {
     var self = this;
 
-    async.eachLimit(vnodes, MAX_PARALLEL_TASKS, onVnode, done);
+    async.eachLimit(vnodes, MAX_PARALLEL_TASKS, onVNode, done);
 
-    function onVnode(vnode, next) {
+    function onVNode(vnode, next) {
         async.waterfall([
-            self.store.load.bind(self.store, vnode),
+            self.store.loadKeys.bind(self.store, vnode),
             onKeys.bind(null, vnode),
         ], next);
     }
@@ -126,7 +126,7 @@ Sevnup.prototype._recoverKey = function _recoverKey(vnode, key, done) {
         this.recoverKeyCallback.bind(this, key),
         function(handled, next) {
             if (handled) {
-                self.store.remove(vnode, key, function(err) {
+                self.store.removeKey(vnode, key, function(err) {
                     if (err) {
                         self.logger.error("Sevnup._recoverKey failed to remove key from vnode", {
                             vnode: vnode,
@@ -180,7 +180,7 @@ Sevnup.prototype._releaseKey = function _releaseKey(vnode, key, done) {
  */
 Sevnup.prototype.workCompleteOnKey = function workCompleteOnKey(key, done) {
     var vnode = this._getVNodeForKey(key);
-    this.store.remove(vnode, key, done);
+    this.store.removeKey(vnode, key, done);
 };
 
 /**

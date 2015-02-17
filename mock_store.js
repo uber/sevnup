@@ -4,7 +4,7 @@ function MockStore() {
     this.store = {};
 }
 
-MockStore.prototype.add = function(vnode, key, done) {
+MockStore.prototype.addKey = function(vnode, key, done) {
     var set = this.store[vnode];
     if (!set) {
         set = this.store[vnode] = {};
@@ -15,7 +15,7 @@ MockStore.prototype.add = function(vnode, key, done) {
     }
 };
 
-MockStore.prototype.remove = function(vnode, key, done) {
+MockStore.prototype.removeKey = function(vnode, key, done) {
     var set = this.store[vnode];
     if (set) {
         delete set[key];
@@ -25,7 +25,7 @@ MockStore.prototype.remove = function(vnode, key, done) {
     }
 };
 
-MockStore.prototype.load = function(vnode, done) {
+MockStore.prototype.loadKeys = function(vnode, done) {
     var set = this.store[vnode];
     var keys = set && Object.keys(set) || [];
     if (done) {

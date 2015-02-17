@@ -4,11 +4,11 @@ var MockStore = require('../mock_store');
 
 test('MockStore flow', function(assert) {
     var store = new MockStore();
-    store.remove('V', 'K');
-    assert.deepEqual(store.load('V'), []);
-    store.add('V', 'K');
-    assert.deepEqual(store.load('V'), ['K']);
-    store.remove('V', 'K');
-    assert.deepEqual(store.load('V'), []);
+    store.removeKey('V', 'K');
+    assert.deepEqual(store.loadKeys('V'), []);
+    store.addKey('V', 'K');
+    assert.deepEqual(store.loadKeys('V'), ['K']);
+    store.removeKey('V', 'K');
+    assert.deepEqual(store.loadKeys('V'), []);
     assert.end();
 });

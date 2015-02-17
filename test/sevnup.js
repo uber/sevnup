@@ -25,10 +25,10 @@ test('Sevnup initial recovery, then recovery and release as ring state changes',
     });
 
     var store = new MockStore();
-    store.add(0, 'k1');
-    store.add(0, 'k2');
-    store.add(1, 'k3');
-    store.add(2, 'k4');
+    store.addKey(0, 'k1');
+    store.addKey(0, 'k2');
+    store.addKey(1, 'k3');
+    store.addKey(2, 'k4');
 
     var recovered = [];
     function recover(key, done) {
@@ -54,9 +54,9 @@ test('Sevnup initial recovery, then recovery and release as ring state changes',
     function checkRecovery() {
         assert.deepEqual(recovered.sort(), ['k1', 'k2', 'k3']);
         assert.deepEqual(released, []);
-        assert.deepEqual(store.load(0), ['k2']);
-        assert.deepEqual(store.load(1), ['k3']);
-        assert.deepEqual(store.load(2), ['k4']);
+        assert.deepEqual(store.loadKeys(0), ['k2']);
+        assert.deepEqual(store.loadKeys(1), ['k3']);
+        assert.deepEqual(store.loadKeys(2), ['k4']);
 
         released = [];
         recovered = [];
@@ -72,9 +72,9 @@ test('Sevnup initial recovery, then recovery and release as ring state changes',
     function checkRingChange() {
         assert.deepEqual(recovered.sort(), ['k4']);
         assert.deepEqual(released.sort(), ['k2', 'k3']);
-        assert.deepEqual(store.load(0), ['k2']);
-        assert.deepEqual(store.load(1), ['k3']);
-        assert.deepEqual(store.load(2), ['k4']);
+        assert.deepEqual(store.loadKeys(0), ['k2']);
+        assert.deepEqual(store.loadKeys(1), ['k3']);
+        assert.deepEqual(store.loadKeys(2), ['k4']);
         assert.end();
     }
 });
@@ -98,7 +98,7 @@ test('Sevnup attached lookup persists owned key', function(assert) {
     }, 100);
 
     function check() {
-        assert.deepEqual(store.load(0), ['derp']);
+        assert.deepEqual(store.loadKeys(0), ['derp']);
         assert.end();
     }
 });
@@ -109,7 +109,7 @@ test('Sevnup attached lookup handles error', function(assert) {
         0: 'A'
     });
     var store = new MockStore();
-    store.add = function(node, key, done) {
+    store.addKey = function(node, key, done) {
         done(new Error('fail'));
     };
     var logged = false;
@@ -143,7 +143,7 @@ test('Sevnup attached lookup does nothing if the key does not belong to sevnup',
         0: 'A'
     });
     var store = new MockStore();
-    store.add = function() {
+    store.addKey = function() {
         assert.fail();
     };
     createSevnup({
@@ -185,7 +185,7 @@ test('Sevnup._recoverKey handles removeKey error', function(assert) {
             done(null, true);
         },
         store: {
-            remove: function(vnode, key, done) {
+            removeKey: function(vnode, key, done) {
                 done(new Error('fail'));
             }
         },
@@ -227,8 +227,8 @@ test('Sevnup.workCompleteOnKey removes key from vnode', function(assert) {
         0: 'A'
     });
     var store = new MockStore();
-    store.add(0, 'k1');
-    store.add(0, 'k2');
+    store.addKey(0, 'k1');
+    store.addKey(0, 'k2');
 
     var sevnup = createSevnup({
         store: store,
@@ -241,7 +241,7 @@ test('Sevnup.workCompleteOnKey removes key from vnode', function(assert) {
     ring.ready();
     sevnup.workCompleteOnKey('k1', function(err) {
         assert.ifErr(err);
-        assert.deepEqual(store.load(0), ['k2']);
+        assert.deepEqual(store.loadKeys(0), ['k2']);
         assert.end();
     });
 });
