@@ -196,7 +196,7 @@ test('Sevnup attached lookup does nothing if the key does not belong to sevnup',
 });
 
 test('Sevnup._recoverKey handles recoverKey error', function(assert) {
-    var logged = true;
+    var logged;
     var sevnup = {
         recoverKeyCallback: function(key, done) {
             done(new Error('test'));
@@ -215,7 +215,7 @@ test('Sevnup._recoverKey handles recoverKey error', function(assert) {
 });
 
 test('Sevnup._recoverKey handles removeKey error', function(assert) {
-    var logged = true;
+    var logged;
     var sevnup = {
         recoverKeyCallback: function(key, done) {
             done(null, true);
@@ -237,7 +237,7 @@ test('Sevnup._recoverKey handles removeKey error', function(assert) {
 });
 
 test('Sevnup._releaseKey handles error', function(assert) {
-    var logged = true;
+    var logged;
     var sevnup = {
         releaseKeyCallback: function(key, done) {
             done(new Error('fail'));
