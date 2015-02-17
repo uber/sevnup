@@ -3,6 +3,7 @@ module.exports = Sevnup;
 var _ = require('lodash');
 var crypto = require('crypto');
 var async = require('async');
+var CacheStore = require('./cache_store');
 
 var DEFAULT_TOTAL_VNODES = 1024;
 var MAX_PARALLEL_TASKS = 10;
@@ -10,9 +11,7 @@ var MAX_PARALLEL_TASKS = 10;
 /**
  * Params are:
  *   hashRing
- *   loadVNodeKeysFromStorage
- *   persistKeyToVNode
- *   persistRemoveKeyFromVNode
+ *   store
  *   recoverKey
  *   releaseKey
  *   totalVNodes
@@ -21,9 +20,7 @@ var MAX_PARALLEL_TASKS = 10;
 function Sevnup(params) {
     this.hashRing = params.hashRing;
     this.hashRingLookup = this.hashRing.lookup.bind(this.hashRing);
-    this.loadVNodeKeysFromStorage = params.loadVNodeKeysFromStorage;
-    this.persistKeyToVNode = params.persistKeyToVNode;
-    this.persistRemoveKeyFromVNode = params.persistRemoveKeyFromVNode;
+    this.store = new CacheStore(params.store);
     this.recoverKeyCallback = params.recoverKey;
     this.releaseKeyCallback = params.releaseKey;
     this.totalVNodes = params.totalVNodes || DEFAULT_TOTAL_VNODES;
@@ -44,7 +41,7 @@ Sevnup.prototype._attachToRing = function _attachToRing() {
         var vnode = self._getVNodeForKey(key);
         var node = self.hashRingLookup(vnode);
         if (self.hashRing.whoami() === node) {
-            self.persistKeyToVNode(vnode, key, function(err) {
+            self.store.add(vnode, key, function(err) {
                 if (err) {
                     self.logger.error("Sevnup.sevnupLookup failed to persist key", {
                         vnode: vnode,
@@ -83,7 +80,9 @@ Sevnup.prototype._getOwnedVNodes = function _getOwnedVNodes() {
  * ownership.
  * @param {object} hashRing A ringPop implementation of a hashring.
  */
-Sevnup.prototype._onRingStateChange = function _onRingStateChange(done) {
+Sevnup.prototype._onRingStateChange = function _onRingStateChange() {
+    var self = this;
+
     var oldOwnedVNodes = this.ownedVNodes;
     var newOwnedVNodes = this.ownedVNodes = this._getOwnedVNodes();
 
@@ -98,7 +97,9 @@ Sevnup.prototype._onRingStateChange = function _onRingStateChange(done) {
     async.parallel([
         this._forEachKeyInVNodes.bind(this, nodesToRelease, this._releaseKey.bind(this)),
         this._forEachKeyInVNodes.bind(this, nodesToRecover, this._recoverKey.bind(this))
-    ], done);
+    ], function() {
+        nodesToRelease.forEach(self.store.release.bind(self.store));
+    });
 };
 
 Sevnup.prototype._forEachKeyInVNodes = function _forEachKeyInVNodes(vnodes, onKey, done) {
@@ -108,7 +109,7 @@ Sevnup.prototype._forEachKeyInVNodes = function _forEachKeyInVNodes(vnodes, onKe
 
     function onVnode(vnode, next) {
         async.waterfall([
-            self.loadVNodeKeysFromStorage.bind(self, vnode),
+            self.store.load.bind(self.store, vnode),
             onKeys.bind(null, vnode),
         ], next);
     }
@@ -125,7 +126,7 @@ Sevnup.prototype._recoverKey = function _recoverKey(vnode, key, done) {
         this.recoverKeyCallback.bind(this, key),
         function(handled, next) {
             if (handled) {
-                self.persistRemoveKeyFromVNode(vnode, key, function(err) {
+                self.store.remove(vnode, key, function(err) {
                     if (err) {
                         self.logger.error("Sevnup._recoverKey failed to remove key from vnode", {
                             vnode: vnode,
@@ -179,7 +180,7 @@ Sevnup.prototype._releaseKey = function _releaseKey(vnode, key, done) {
  */
 Sevnup.prototype.workCompleteOnKey = function workCompleteOnKey(key, done) {
     var vnode = this._getVNodeForKey(key);
-    this.persistRemoveKeyFromVNode(vnode, key, done);
+    this.store.remove(vnode, key, done);
 };
 
 /**

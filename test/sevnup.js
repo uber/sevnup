@@ -2,48 +2,12 @@ var test = require('tape');
 
 var Sevnup = require('../index');
 var MockRing = require('../mock_ring');
-
-function MockStore() {
-    this.store = {};
-}
-
-MockStore.prototype.add = function(vnode, key, done) {
-    var set = this.store[vnode];
-    if (!set) {
-        set = this.store[vnode] = {};
-    }
-    set[key] = true;
-    if (done) {
-        done();
-    }
-};
-
-MockStore.prototype.remove = function(vnode, key, done) {
-    var set = this.store[vnode];
-    if (set) {
-        delete set[key];
-    }
-    if (done) {
-        done();
-    }
-};
-
-MockStore.prototype.load = function(vnode, done) {
-    var set = this.store[vnode];
-    var keys = set && Object.keys(set) || [];
-    if (done) {
-        done(null, keys);
-    } else {
-        return keys;
-    }
-};
+var MockStore = require('../mock_store');
 
 function createSevnup(params) {
     var sevnup = new Sevnup({
         hashRing: params.ring,
-        loadVNodeKeysFromStorage: params.store.load.bind(params.store),
-        persistKeyToVNode: params.store.add.bind(params.store),
-        persistRemoveKeyFromVNode: params.store.remove.bind(params.store),
+        store: params.store,
         recoverKey: params.recover,
         releaseKey: params.release,
         logger: params.logger || console,
@@ -220,8 +184,10 @@ test('Sevnup._recoverKey handles removeKey error', function(assert) {
         recoverKeyCallback: function(key, done) {
             done(null, true);
         },
-        persistRemoveKeyFromVNode: function(vnode, key, done) {
-            done(new Error('fail'));
+        store: {
+            remove: function(vnode, key, done) {
+                done(new Error('fail'));
+            }
         },
         logger: {
             error: function() {
