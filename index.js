@@ -4,7 +4,7 @@ var _ = require('lodash');
 var crypto = require('crypto');
 var async = require('async');
 
-var DEFAULT_TOTAL_VNODES = 14;
+var DEFAULT_TOTAL_VNODES = 1024;
 var MAX_PARALLEL_TASKS = 10;
 
 /**
