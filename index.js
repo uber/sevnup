@@ -98,7 +98,7 @@ Sevnup.prototype._onRingStateChange = function _onRingStateChange() {
         this._forEachKeyInVNodes.bind(this, nodesToRelease, this._releaseKey.bind(this)),
         this._forEachKeyInVNodes.bind(this, nodesToRecover, this._recoverKey.bind(this))
     ], function() {
-        nodesToRelease.forEach(self.store.release.bind(self.store));
+        nodesToRelease.forEach(self.store.releaseFromCache.bind(self.store));
     });
 };
 

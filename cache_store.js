@@ -7,7 +7,7 @@ function CacheStore(store) {
     this.cache = {};
 }
 
-CacheStore.prototype.addKey = function add(vnode, key, done) {
+CacheStore.prototype.addKey = function addKey(vnode, key, done) {
     var set = this.cache[vnode];
     if (!set) {
         // Hasn't been fully loaded into cache
@@ -24,7 +24,7 @@ CacheStore.prototype.addKey = function add(vnode, key, done) {
     });
 };
 
-CacheStore.prototype.removeKey = function remove(vnode, key, done) {
+CacheStore.prototype.removeKey = function removeKey(vnode, key, done) {
     var set = this.cache[vnode];
     // Set is loaded, key is not present.
     // TODO if you want to get really fancy, store a tombstone on remove and check that too.
@@ -39,7 +39,7 @@ CacheStore.prototype.removeKey = function remove(vnode, key, done) {
     });
 };
 
-CacheStore.prototype.loadKeys = function load(vnode, done) {
+CacheStore.prototype.loadKeys = function loadKeys(vnode, done) {
     var self = this;
     if (this.cache[vnode]) {
         return done(null, Object.keys(this.cache[vnode]));
@@ -55,6 +55,6 @@ CacheStore.prototype.loadKeys = function load(vnode, done) {
     });
 };
 
-CacheStore.prototype.release = function release(vnode) {
+CacheStore.prototype.releaseFromCache = function releaseFromCache(vnode) {
     delete this.cache[vnode];
 };
