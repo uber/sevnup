@@ -10,6 +10,10 @@ function MockRing(me) {
 }
 util.inherits(MockRing, EventEmitter);
 
+MockRing.prototype.ready = function ready() {
+    this.emit('ready');
+};
+
 MockRing.prototype.changeRing = function changeRing(keyMapping) {
     this.keyMapping = keyMapping;
     this.emit('changed');

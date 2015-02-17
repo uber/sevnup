@@ -84,6 +84,7 @@ test('Sevnup initial recovery, then recovery and release as ring state changes',
         recover: recover,
         release: release
     });
+    ring.ready();
     setTimeout(checkRecovery, 100);
 
     function checkRecovery() {
@@ -125,6 +126,7 @@ test('Sevnup attached lookup persists owned key', function(assert) {
         ring: ring,
         totalVNodes: 1
     });
+    ring.ready();
 
     setTimeout(function() {
         assert.equal(ring.lookup('derp'), 'A');
@@ -158,6 +160,7 @@ test('Sevnup attached lookup handles error', function(assert) {
         },
         totalVNodes: 1
     });
+    ring.ready();
 
     setTimeout(function() {
         assert.equal(ring.lookup('derp'), 'A');
@@ -184,6 +187,7 @@ test('Sevnup attached lookup does nothing if the key does not belong to sevnup',
         ring: ring,
         totalVNodes: 1
     });
+    ring.ready();
 
     setTimeout(function() {
         assert.equal(ring.lookup('derp'), 'A');
@@ -268,6 +272,7 @@ test('Sevnup.workCompleteOnKey removes key from vnode', function(assert) {
             done(null, false);
         }
     });
+    ring.ready();
     sevnup.workCompleteOnKey('k1', function(err) {
         assert.ifErr(err);
         assert.deepEqual(store.load(0), ['k2']);

@@ -19,8 +19,6 @@ var MAX_PARALLEL_TASKS = 10;
  *   logger
  */
 function Sevnup(params) {
-    var self = this;
-
     this.hashRing = params.hashRing;
     this.hashRingLookup = this.hashRing.lookup.bind(this.hashRing);
     this.loadVNodeKeysFromStorage = params.loadVNodeKeysFromStorage;
@@ -33,14 +31,15 @@ function Sevnup(params) {
 
     this.ownedVNodes = [];
 
-    this._onRingStateChange(function() {
-        self._attachToRing();
-    });
+    this._attachToRing();
 }
 
 Sevnup.prototype._attachToRing = function _attachToRing() {
     var self = this;
-    this.hashRing.on('changed', this._onRingStateChange.bind(this));
+    this.hashRing.on('ready', function() {
+        self.hashRing.on('changed', self._onRingStateChange.bind(self));
+        self._onRingStateChange();
+    });
     this.hashRing.lookup = function sevnupLookup(key) {
         var vnode = self._getVNodeForKey(key);
         var node = self.hashRingLookup(vnode);
