@@ -1,91 +1,57 @@
+module.exports = Sevnup;
+
+var _ = require('lodash');
+var crypto = require('crypto');
 var async = require('async');
 
-var VNodeStore = require('./lib/vnode-store.js');
-
-//TODO (joseph@): Config.
-var TOTAL_VNODES = 14;
-var MAX_PARALLEL_TASKS = 5;
+var DEFAULT_TOTAL_VNODES = 1024;
+var MAX_PARALLEL_TASKS = 10;
 
 /**
- * Constructor, takes all optional persistence function overrides but expects none.
- * @constructor
- * @param {function} loadVNKeysFromStorage A method that takes a vnode and
- *     the list of keys it owns, presumably recovered from a datastore.
- *  @param {function} persistKeyToVNode Given a key and a VNode, this function
- *      adds the relation to the datastore.
- *  @param {function} persistRemoveKeyFromVNode The inverse of
- *      persistKeyToVNode, removes a key relation to a VNode in the store.
- *  @param {function} recoverKey The function to run on each key that is
- *      recovered. Takes 'done' callback.
- *  @param {function} releaseKey The function called when you release your
- *      ownership of a key, for example if another node now owns it.  Cleanup.
- *      Also takes a 'done' callback.
+ * Params are:
+ *   hashRing
+ *   loadVNodeKeysFromStorage
+ *   persistKeyToVNode
+ *   persistRemoveKeyFromVNode
+ *   recoverKey
+ *   releaseKey
+ *   totalVNodes
+ *   logger
  */
-function Sevnup(persistenceService, recoverKey, releaseKey) {
-    var allVNodes = [];
-    for (var i=0; i<TOTAL_VNODES; i++) {
-        allVNodes.push(i);
-    }
-    this.allVNodes = allVNodes;
-    this.vnodeStore = new VNodeStore(persistenceService, recoverKey, releaseKey);
+function Sevnup(params) {
+    this.hashRing = params.hashRing;
+    this.hashRingLookup = this.hashRing.lookup.bind(this.hashRing);
+    this.loadVNodeKeysFromStorage = params.loadVNodeKeysFromStorage;
+    this.persistKeyToVNode = params.persistKeyToVNode;
+    this.persistRemoveKeyFromVNode = params.persistRemoveKeyFromVNode;
+    this.recoverKeyCallback = params.recoverKey;
+    this.releaseKeyCallback = params.releaseKey;
+    this.totalVNodes = params.totalVNodes || DEFAULT_TOTAL_VNODES;
+    this.logger = params.logger;
+
+    this.ownedVNodes = [];
+
+    this._attachToRing();
 }
 
-/**
- * Checks each VNode to see if the current node owns it, and if it does it
- * prompts recovery of each key.  For example, it finds that it owns VNode B,
- * recovers 14 keys that the old owner of VNode B was working on, and prompts
- * the client via callback to recover each of those keys, leaving that to the
- * individual client's business logic.
- * @param {function} done The callback when all keys have been loaded.
- */
-Sevnup.prototype.loadAllKeys = function loadAllKeys(done) {
+Sevnup.prototype._attachToRing = function _attachToRing() {
     var self = this;
-    async.eachLimit(
-        self.allVNodes,
-        MAX_PARALLEL_TASKS,
-        function (vnode, eachDone) {
-            if (self.iOwnVNode(vnode)) {
-                self.vnodeStore.loadVNodeKeys(vnode, eachDone);
-            } else {
-                eachDone();
-            }
-        },
-        function (err) {
-            done(err);
-        }
-    );
-};
-
-/**
- * When you are done working on a key, or no longer want it within bookkeeping
- * you can alert sevnup to forget it.  This notifies the ring that it doesn't
- * need attention in the event this node goes down or hands off ownership.
- * We want the service to be ignorant of vnodes so we rediscover the vnode.
- * @param {string} key The key you have finished work on.
- * @param {function} done Optional callback if you want to listen to completion
- */
-Sevnup.prototype.workCompleteOnKey = function workCompleteOnKey(key, done) {
-    var self = this;
-    var vnode = self.getVNodeForKey(key);
-    self.vnodeStore.removeKeyFromVNode(vnode, key, done);
-};
-
-/**
- * Takes a hashRing and subscribes to the correct events to maintain VNode
- * ownership.
- * @param {object} hashRing A ringPop implementation of a hashring.
- */
-Sevnup.prototype.attachToRing = function attachToRing(hashRing) {
-    var self = this;
-    self.hashRing = hashRing;
-    hashRing.on('changed', self.loadAllKeys);
-    var keyLookup = hashRing.lookup.bind(hashRing);
-    hashRing.lookup = function(key) {
-        var vnode = self.getVNodeForKey(key);
-        var node = keyLookup(vnode);
-        if ( self.hashRing.whoami() === node ) {
-            self.vnodeStore.addKeyToVNode(vnode, key, function() {
-                //TODO (joseph): Logging logger log. Function passes error
+    this.hashRing.on('ready', function() {
+        self.hashRing.on('changed', self._onRingStateChange.bind(self));
+        self._onRingStateChange();
+    });
+    this.hashRing.lookup = function sevnupLookup(key) {
+        var vnode = self._getVNodeForKey(key);
+        var node = self.hashRingLookup(vnode);
+        if (self.hashRing.whoami() === node) {
+            self.persistKeyToVNode(vnode, key, function(err) {
+                if (err) {
+                    self.logger.error("Sevnup.sevnupLookup failed to persist key", {
+                        vnode: vnode,
+                        key: key,
+                        error: err
+                    });
+                }
             });
         }
         return node;
@@ -96,10 +62,124 @@ Sevnup.prototype.attachToRing = function attachToRing(hashRing) {
  * Returns true if this node currently owns vnode.
  * @param {string} vnodeName The name of the vnode to check.
  */
-Sevnup.prototype.iOwnVNode = function iOwnVNode(vnodeName) {
+Sevnup.prototype._iOwnVNode = function _iOwnVNode(vnodeName) {
+    // Use the non-patched lookup
+    var node = this.hashRingLookup(vnodeName);
+    return this.hashRing.whoami() === node;
+};
+
+Sevnup.prototype._getOwnedVNodes = function _getOwnedVNodes() {
+    var results = [];
+    for (var i = 0; i < this.totalVNodes; ++i) {
+        if (this._iOwnVNode(i)) {
+            results.push(i);
+        }
+    }
+    return results;
+};
+
+/**
+ * Takes a hashRing and subscribes to the correct events to maintain VNode
+ * ownership.
+ * @param {object} hashRing A ringPop implementation of a hashring.
+ */
+Sevnup.prototype._onRingStateChange = function _onRingStateChange(done) {
+    var oldOwnedVNodes = this.ownedVNodes;
+    var newOwnedVNodes = this.ownedVNodes = this._getOwnedVNodes();
+
+    var nodesToRelease = _.difference(oldOwnedVNodes, newOwnedVNodes);
+    var nodesToRecover = _.difference(newOwnedVNodes, oldOwnedVNodes);
+
+    this.logger.info('Sevnup._onRingStateChange', {
+        releasing: nodesToRelease,
+        recovering: nodesToRecover
+    });
+
+    async.parallel([
+        this._forEachKeyInVNodes.bind(this, nodesToRelease, this._releaseKey.bind(this)),
+        this._forEachKeyInVNodes.bind(this, nodesToRecover, this._recoverKey.bind(this))
+    ], done);
+};
+
+Sevnup.prototype._forEachKeyInVNodes = function _forEachKeyInVNodes(vnodes, onKey, done) {
     var self = this;
-    var node = self.hashRing.lookup(vnodeName);
-    return self.hashRing.whoami() === node;
+
+    async.eachLimit(vnodes, MAX_PARALLEL_TASKS, onVnode, done);
+
+    function onVnode(vnode, next) {
+        async.waterfall([
+            self.loadVNodeKeysFromStorage.bind(self, vnode),
+            onKeys.bind(null, vnode),
+        ], next);
+    }
+
+    function onKeys(vnode, keys, next) {
+        async.eachLimit(keys, MAX_PARALLEL_TASKS, onKey.bind(null, vnode), next);
+    }
+};
+
+Sevnup.prototype._recoverKey = function _recoverKey(vnode, key, done) {
+    var self = this;
+
+    async.waterfall([
+        this.recoverKeyCallback.bind(this, key),
+        function(handled, next) {
+            if (handled) {
+                self.persistRemoveKeyFromVNode(vnode, key, function(err) {
+                    if (err) {
+                        self.logger.error("Sevnup._recoverKey failed to remove key from vnode", {
+                            vnode: vnode,
+                            key: key,
+                            error: err
+                        });
+                    }
+                    // Swallow
+                    next();
+                });
+            } else {
+                next();
+            }
+        }
+    ], function(err) {
+        if (err) {
+            self.logger.error("Sevnup._recoverKey encountered an error", {
+                vnode: vnode,
+                key: key,
+                error: err
+            });
+        }
+        // Swallow
+        done();
+    });
+};
+
+Sevnup.prototype._releaseKey = function _releaseKey(vnode, key, done) {
+    var self = this;
+    this.releaseKeyCallback(key, function(err) {
+        if (err) {
+            self.logger.error("Sevnup._releaseKey encountered an error", {
+                vnode: vnode,
+                key: key,
+                error: err
+            });
+        }
+        // Swallow
+        done();
+    });
+};
+
+
+/**
+ * When you are done working on a key, or no longer want it within bookkeeping
+ * you can alert sevnup to forget it.  This notifies the ring that it doesn't
+ * need attention in the event this node goes down or hands off ownership.
+ * We want the service to be ignorant of vnodes so we rediscover the vnode.
+ * @param {string} key The key you have finished work on.
+ * @param {function} done Optional callback if you want to listen to completion
+ */
+Sevnup.prototype.workCompleteOnKey = function workCompleteOnKey(key, done) {
+    var vnode = this._getVNodeForKey(key);
+    this.persistRemoveKeyFromVNode(vnode, key, done);
 };
 
 /**
@@ -107,27 +187,7 @@ Sevnup.prototype.iOwnVNode = function iOwnVNode(vnodeName) {
  * correct node, via looking up by vnode name.
  * @param {string} key The key to match to a vnode.
  */
-Sevnup.prototype.getVNodeForKey = function getVNodeForKey(key) {
-    return this.hashCode(key) % TOTAL_VNODES;
+Sevnup.prototype._getVNodeForKey = function _getVNodeForKey(key) {
+    var hash = new Buffer(crypto.createHash('md5').update(key).digest('binary'));
+    return hash.readUInt32LE(0) % this.totalVNodes;
 };
-
-/**
- * Given a string, turns it into a 32 bit integer.  To be moved to the utility
- * class.  TODO(joseph): move to utils.
- * @param {string} string the string to convert
- */
-Sevnup.prototype.hashCode = function(string) {
-    var hash = 0;
-    var character;
-    var length = string.length;
-    if (length !== 0) {
-        for (var i = 0; i < length; i++) {
-            character   = string.charCodeAt(i);
-            hash  = ((hash << 5) - hash) + character;
-            hash |= 0; 
-        }
-    }
-    return hash;
-};
-
-module.exports = Sevnup;
