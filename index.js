@@ -106,8 +106,10 @@ Sevnup.prototype._onRingStateChange = function _onRingStateChange() {
         var nodesToRecover = _.difference(newOwnedVNodes, oldOwnedVNodes);
 
         self.logger.info('Sevnup._onRingStateChange', {
+            me: self.hashRing.whoami(),
             releasing: nodesToRelease,
-            recovering: nodesToRecover
+            recovering: nodesToRecover,
+            owned: self.ownedVNodes
         });
 
         async.parallel([
