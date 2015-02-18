@@ -16,7 +16,7 @@ function createSevnup(params) {
     return sevnup;
 }
 
-test('Sevnup initial recovery, then recovery and release as ring state changes', function(assert) {
+function sevnupFlow(assert, earlyReady) {
     var ring = new MockRing('A');
     ring.changeRing({
         0: 'A',
@@ -42,13 +42,20 @@ test('Sevnup initial recovery, then recovery and release as ring state changes',
         done();
     }
 
+    if (earlyReady) {
+        ring.ready();
+    }
+
     createSevnup({
         store: store,
         ring: ring,
         recover: recover,
         release: release
     });
-    ring.ready();
+
+    if  (!earlyReady) {
+        ring.ready();
+    }
     setTimeout(checkRecovery, 100);
 
     function checkRecovery() {
@@ -77,6 +84,14 @@ test('Sevnup initial recovery, then recovery and release as ring state changes',
         assert.deepEqual(store.loadKeys(2), ['k4']);
         assert.end();
     }
+}
+
+test('Sevnup initial recovery, then recovery and release as ring state changes - late ready', function(assert) {
+    sevnupFlow(assert, false);
+});
+
+test('Sevnup initial recovery, then recovery and release as ring state changes - early ready', function(assert) {
+    sevnupFlow(assert, true);
 });
 
 test('Sevnup attached lookup persists owned key', function(assert) {
