@@ -6,6 +6,7 @@ var async = require('async');
 var CacheStore = require('./cache_store');
 
 var DEFAULT_TOTAL_VNODES = 1024;
+var DEFAULT_CALM_THRESHOLD = 500;
 var MAX_PARALLEL_TASKS = 10;
 
 /**
@@ -25,6 +26,8 @@ function Sevnup(params) {
     this.releaseKeyCallback = params.releaseKey;
     this.totalVNodes = params.totalVNodes || DEFAULT_TOTAL_VNODES;
     this.logger = params.logger;
+    this.calmThreshold = params.calmThreshold || DEFAULT_CALM_THRESHOLD;
+    this.calmTimeout = null;
 
     this.ownedVNodes = [];
 
@@ -90,24 +93,30 @@ Sevnup.prototype._getOwnedVNodes = function _getOwnedVNodes() {
  */
 Sevnup.prototype._onRingStateChange = function _onRingStateChange() {
     var self = this;
+    if (this.calmTimeout) {
+        clearTimeout(this.calmTimeout);
+    }
+    this.calmTimeout = setTimeout(execute, this.calmThreshold);
 
-    var oldOwnedVNodes = this.ownedVNodes;
-    var newOwnedVNodes = this.ownedVNodes = this._getOwnedVNodes();
+    function execute() {
+        var oldOwnedVNodes = self.ownedVNodes;
+        var newOwnedVNodes = self.ownedVNodes = self._getOwnedVNodes();
 
-    var nodesToRelease = _.difference(oldOwnedVNodes, newOwnedVNodes);
-    var nodesToRecover = _.difference(newOwnedVNodes, oldOwnedVNodes);
+        var nodesToRelease = _.difference(oldOwnedVNodes, newOwnedVNodes);
+        var nodesToRecover = _.difference(newOwnedVNodes, oldOwnedVNodes);
 
-    this.logger.info('Sevnup._onRingStateChange', {
-        releasing: nodesToRelease,
-        recovering: nodesToRecover
-    });
+        self.logger.info('Sevnup._onRingStateChange', {
+            releasing: nodesToRelease,
+            recovering: nodesToRecover
+        });
 
-    async.parallel([
-        this._forEachKeyInVNodes.bind(this, nodesToRelease, this._releaseKey.bind(this)),
-        this._forEachKeyInVNodes.bind(this, nodesToRecover, this._recoverKey.bind(this))
-    ], function() {
-        nodesToRelease.forEach(self.store.releaseFromCache.bind(self.store));
-    });
+        async.parallel([
+            self._forEachKeyInVNodes.bind(self, nodesToRelease, self._releaseKey.bind(self)),
+            self._forEachKeyInVNodes.bind(self, nodesToRecover, self._recoverKey.bind(self))
+        ], function() {
+            nodesToRelease.forEach(self.store.releaseFromCache.bind(self.store));
+        });
+    }
 };
 
 Sevnup.prototype._forEachKeyInVNodes = function _forEachKeyInVNodes(vnodes, onKey, done) {
@@ -198,4 +207,8 @@ Sevnup.prototype.workCompleteOnKey = function workCompleteOnKey(key, done) {
  */
 Sevnup.prototype._getVNodeForKey = function _getVNodeForKey(key) {
     return farmhash.hash32(key) % this.totalVNodes;
+};
+
+Sevnup.prototype.destroy = function destroy() {
+    clearTimeout(this.calmTimeout);
 };

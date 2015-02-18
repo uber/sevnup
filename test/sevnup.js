@@ -11,10 +11,22 @@ function createSevnup(params) {
         recoverKey: params.recover,
         releaseKey: params.release,
         logger: params.logger || console,
-        totalVNodes: params.totalVNodes
+        totalVNodes: params.totalVNodes,
+        calmThreshold: 1 || params.calmThreshold
     });
     return sevnup;
 }
+
+test('Sevnup default params', function(assert) {
+    var ring = new MockRing('A');
+    var sevnup = new Sevnup({
+        hashRing: ring,
+        store: {}
+    });
+    assert.ok(sevnup.calmThreshold);
+    assert.ok(sevnup.totalVNodes);
+    assert.end();
+});
 
 function sevnupFlow(assert, earlyReady) {
     var ring = new MockRing('A');
@@ -259,4 +271,95 @@ test('Sevnup.workCompleteOnKey removes key from vnode', function(assert) {
         assert.deepEqual(store.loadKeys(0), ['k2']);
         assert.end();
     });
+});
+
+test('Sevnup._onRingStateChange waits for calm before processing ring state change', function(assert) {
+    var ring = new MockRing('A');
+    ring.changeRing({
+        0: 'A'
+    });
+    var store = new MockStore();
+    store.addKey(0, 'k1');
+
+    var recovers = 0;
+    var releases = 0;
+    var logs = 0;
+    createSevnup({
+        store: store,
+        ring: ring,
+        totalVNodes: 1,
+        recover: function(key, done) {
+            recovers++;
+            done(null, false);
+        },
+        release: function(key, done) {
+            releases++;
+            done();
+        },
+        logger: {
+            info: function() {
+                logs++;
+            }
+        },
+        calmThreshold: 200
+    });
+    ring.ready();
+    ring.changeRing({
+        0: 'B'
+    });
+    ring.changeRing({
+        0: 'A'
+    });
+    ring.changeRing({
+        0: 'B'
+    });
+    ring.changeRing({
+        0: 'A'
+    });
+    ring.changeRing({
+        0: 'B'
+    });
+    ring.changeRing({
+        0: 'A'
+    });
+    setTimeout(checkResults, 300);
+    function checkResults() {
+        assert.equal(recovers, 1);
+        assert.equal(releases, 0);
+        assert.equal(logs, 1);
+        assert.end();
+    }
+});
+
+test('Sevnup.destroy stops timers', function(assert) {
+    var ring = new MockRing('A');
+    ring.changeRing({
+        0: 'A'
+    });
+    var store = new MockStore();
+    store.addKey(0, 'k1');
+
+    var sevnup = createSevnup({
+        store: store,
+        ring: ring,
+        totalVNodes: 1,
+        recover: function() {
+            assert.fail();
+        },
+        release: function() {
+            assert.fail();
+        },
+        logger: {
+            info: function() {
+                assert.fail();
+            }
+        },
+        calmThreshold: 200
+    });
+    ring.ready();
+    sevnup.destroy();
+    setTimeout(checkResults, 300);
+    function checkResults() {
+        assert.end();
+    }
 });
