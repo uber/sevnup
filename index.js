@@ -6,7 +6,7 @@ var async = require('async');
 var CacheStore = require('./cache_store');
 
 var DEFAULT_TOTAL_VNODES = 1024;
-var DEFAULT_CALM_THRESHOLD = 1000;
+var DEFAULT_CALM_THRESHOLD = 500;
 var MAX_PARALLEL_TASKS = 10;
 
 /**
