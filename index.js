@@ -1,7 +1,7 @@
 module.exports = Sevnup;
 
 var _ = require('lodash');
-var crypto = require('crypto');
+var farmhash = require('farmhash');
 var async = require('async');
 var CacheStore = require('./cache_store');
 
@@ -189,6 +189,5 @@ Sevnup.prototype.workCompleteOnKey = function workCompleteOnKey(key, done) {
  * @param {string} key The key to match to a vnode.
  */
 Sevnup.prototype._getVNodeForKey = function _getVNodeForKey(key) {
-    var hash = new Buffer(crypto.createHash('md5').update(key).digest('binary'));
-    return hash.readUInt32LE(0) % this.totalVNodes;
+    return farmhash.hash32(key) % this.totalVNodes;
 };
