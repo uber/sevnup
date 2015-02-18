@@ -7,10 +7,12 @@ function MockRing(me) {
     EventEmitter.call(this);
     this.keyMapping = {};
     this.me = me;
+    this.isReady = false;
 }
 util.inherits(MockRing, EventEmitter);
 
 MockRing.prototype.ready = function ready() {
+    this.isReady = true;
     this.emit('ready');
 };
 

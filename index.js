@@ -33,10 +33,7 @@ function Sevnup(params) {
 
 Sevnup.prototype._attachToRing = function _attachToRing() {
     var self = this;
-    this.hashRing.on('ready', function() {
-        self.hashRing.on('changed', self._onRingStateChange.bind(self));
-        self._onRingStateChange();
-    });
+
     this.hashRing.lookup = function sevnupLookup(key) {
         var vnode = self._getVNodeForKey(key);
         var node = self.hashRingLookup(vnode);
@@ -53,6 +50,17 @@ Sevnup.prototype._attachToRing = function _attachToRing() {
         }
         return node;
     };
+
+    if (this.hashRing.isReady) {
+        onReady();
+    } else {
+        this.hashRing.on('ready', onReady);
+    }
+
+    function onReady() {
+        self.hashRing.on('changed', self._onRingStateChange.bind(self));
+        self._onRingStateChange();
+    }
 };
 
 /**
