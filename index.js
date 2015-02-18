@@ -208,3 +208,7 @@ Sevnup.prototype.workCompleteOnKey = function workCompleteOnKey(key, done) {
 Sevnup.prototype._getVNodeForKey = function _getVNodeForKey(key) {
     return farmhash.hash32(key) % this.totalVNodes;
 };
+
+Sevnup.prototype.destroy = function destroy() {
+    clearTimeout(this.calmTimeout);
+};

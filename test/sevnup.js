@@ -330,3 +330,36 @@ test('Sevnup._onRingStateChange waits for calm before processing ring state chan
         assert.end();
     }
 });
+
+test('Sevnup.destroy stops timers', function(assert) {
+    var ring = new MockRing('A');
+    ring.changeRing({
+        0: 'A'
+    });
+    var store = new MockStore();
+    store.addKey(0, 'k1');
+
+    var sevnup = createSevnup({
+        store: store,
+        ring: ring,
+        totalVNodes: 1,
+        recover: function() {
+            assert.fail();
+        },
+        release: function() {
+            assert.fail();
+        },
+        logger: {
+            info: function() {
+                assert.fail();
+            }
+        },
+        calmThreshold: 200
+    });
+    ring.ready();
+    sevnup.destroy();
+    setTimeout(checkResults, 300);
+    function checkResults() {
+        assert.end();
+    }
+});
