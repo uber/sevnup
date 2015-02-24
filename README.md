@@ -21,7 +21,7 @@ the previous owner's logic.
 
 ## Usage
 Using sevnup should be simple and transparent.  One only needs to teach it how
-to persist its data, attach it to your hash ring implementation, and tell it 
+to persist its data, attach it to your hash ring implementation, and tell it
 what to do with recovered keys when necessary.
 
 Starting with teaching it persistence.  Sevnup works exclusively with key:set
@@ -54,7 +54,7 @@ node would be A, C, or B.  So we'll show it how to load the corresponding sets.
  * Note that this will return an array of keys fetched from the database with
  * this virtual node name.  In the example above, that could be A, C or B.
  */
-var loadVNodeKeys = function(vnodeName, onKeysLoaded) {
+function loadKeys(vnodeName, onKeysLoaded) {
    // Fetch  all keys in the set that belong to vnodeName from your data store.
    onKeysLoaded(err, allKeys);
 }
@@ -77,14 +77,15 @@ sevnup. Note that we use a 'fake' set for performance reasons, instead of
 a javascript array.  In the future, arrays will be supported as well, but for
 now, sevnup expects a javascript 'set'.
 ```js
-var persistKeyToVNode = function(vnodeName, key) {
-    // Depending on datastore implementation, this can vary.  
+function addKey(vnodeName, key, done) {
+    // Depending on datastore implementation, this can vary.
     // We'll use pseudo code below to make it more clear.
     var vnodeKeys = datastore.getSet(vnodeName);
     if( !(Object.prototype.hasOwnProperty(vnodeKeys, key)) ) {
         vnodeKeys[key] = true;
     }
     datastore.saveSet(vnodeName, vnodeKeys);
+    done();
 };
 ```
 
@@ -94,11 +95,12 @@ var persistKeyToVNode = function(vnodeName, key) {
 You need to also do the reverse.  This is simple.  In the same example, using
 set `A`, we will pseudocode the removal of the key.
 ```js
-var persistRemoveKeyFromVNode = function(vnodeName, key) {
+function removeKey(vnodeName, key, done) {
     var vnodeKeys = datastore.getSet(vnodeName);
     if( Object.prototype.hasOwnProperty(vnodeKeys, key) ) {
         delete vnodeKeys[key];
     }
+    done();
 };
 ```
 
@@ -115,14 +117,14 @@ of a sudden you are now responsible for some of the objects it was dealing
 with.  For each of the objects you now need to take over, sevnup will call your
 recover function, where you can do what you like with your new objects.
 ```js
-var recover = function(key) {
+function recover(key, done) {
     var entityHandled = false;
     var myEntity = datastore.getEntity(key);
     if( myEntity.state === 'terrible' ) {
         // business logics...
         entityHandled = true;
     }
-    return entityHandled;
+    done(null, entityHandled);
 };
 ```
 Important note: this function returns true or false.  It does not have to be in
@@ -134,26 +136,36 @@ you wouldn't want to return true until you were done processing it.  If your
 application or node were to go down in the interim, no one would pick up where
 you left off.  So be sure to return `true` only once you're done recovering!
 
-
+If the ring state changes such that the process no longer owns certain keys,
+sevnup will call your release function so that any cleanup you require can
+be performed.
+```js
+function releaseKey(key, done) {
+    done();
+};
+```
 
 ### V. Finish
-Last, we make sure that we attach sevnup to the hashring implementation you are
-using.  This is simple:
+Sevnup takes all these functions on construction, as well as the hashring, logger, and the number of vnodes:
 
 ```js
 var Sevnup = require('sevnup');
 var hashring = require('myhashringimplementation');
 
-var sevnup = new Sevnup(
-    loadVNodeKeys,
-    persistKeyToVNode,
-    persistRemoveKeyFromVNode,
-    recover
-);
-
-sevnup.attachToHashRing(hashring);
+var sevnup = new Sevnup({
+    hashRing: hashring,
+    store: {
+        addKey: addKey,
+        removeKey: removeKey,
+        loadKeys: loadKeys
+    },
+    recoverKey: recoverKey,
+    releaseKey: releaseKey,
+    totalVNodes: 2048, // default is 1024
+    logger: console
+});
 ```
-This assumes the hashring implementation has a 'changed' event that is
+This assumes the hashring implementation has a 'ringChanged' event that is
 triggered when the state of the ring changes.
 
 That's a full (sans implementation of the functions we talked about above) set up of sevnup.
