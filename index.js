@@ -61,7 +61,7 @@ Sevnup.prototype._attachToRing = function _attachToRing() {
     }
 
     function onReady() {
-        self.hashRing.on('changed', self._onRingStateChange.bind(self));
+        self.hashRing.on('ringChanged', self._onRingStateChange.bind(self));
         self._onRingStateChange();
     }
 };

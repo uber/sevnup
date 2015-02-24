@@ -18,7 +18,7 @@ MockRing.prototype.ready = function ready() {
 
 MockRing.prototype.changeRing = function changeRing(keyMapping) {
     this.keyMapping = keyMapping;
-    this.emit('changed');
+    this.emit('ringChanged');
 };
 
 MockRing.prototype.whoami = function whoami() {
