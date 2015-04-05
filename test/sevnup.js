@@ -12,7 +12,8 @@ function createSevnup(params) {
         releaseKey: params.release,
         logger: params.logger || console,
         totalVNodes: params.totalVNodes,
-        calmThreshold: 1 || params.calmThreshold
+        calmThreshold: 1 || params.calmThreshold,
+        addOnLookup: params.addOnLookup
     });
     return sevnup;
 }
@@ -106,7 +107,7 @@ test('Sevnup initial recovery, then recovery and release as ring state changes -
     sevnupFlow(assert, true);
 });
 
-test('Sevnup attached lookup persists owned key', function(assert) {
+test('Sevnup attached lookup persists owned key if addOnLookup true', function(assert) {
     var ring = new MockRing('A');
     ring.changeRing({
         0: 'A'
@@ -115,7 +116,8 @@ test('Sevnup attached lookup persists owned key', function(assert) {
     createSevnup({
         store: store,
         ring: ring,
-        totalVNodes: 1
+        totalVNodes: 1,
+        addOnLookup: true
     });
     ring.ready();
 
@@ -130,7 +132,32 @@ test('Sevnup attached lookup persists owned key', function(assert) {
     }
 });
 
-test('Sevnup attached lookup handles error', function(assert) {
+test('Sevnup attached lookup does not persist owned key if addOnLookup false', function(assert) {
+    var ring = new MockRing('A');
+    ring.changeRing({
+        0: 'A'
+    });
+    var store = new MockStore();
+    createSevnup({
+        store: store,
+        ring: ring,
+        totalVNodes: 1,
+        addOnLookup: false
+    });
+    ring.ready();
+
+    setTimeout(function() {
+        assert.equal(ring.lookup('derp'), 'A');
+        setTimeout(check, 100);
+    }, 100);
+
+    function check() {
+        assert.deepEqual(store.loadKeys(0), []);
+        assert.end();
+    }
+});
+
+test('Sevnup addKey handles error', function(assert) {
     var ring = new MockRing('A');
     ring.changeRing({
         0: 'A'
@@ -140,7 +167,7 @@ test('Sevnup attached lookup handles error', function(assert) {
         done(new Error('fail'));
     };
     var logged = false;
-    createSevnup({
+    var sevnup = createSevnup({
         store: store,
         ring: ring,
         logger: {
@@ -151,20 +178,15 @@ test('Sevnup attached lookup handles error', function(assert) {
         },
         totalVNodes: 1
     });
-    ring.ready();
-
-    setTimeout(function() {
-        assert.equal(ring.lookup('derp'), 'A');
-        setTimeout(check, 100);
-    });
-
-    function check() {
+    sevnup.addKey('derp');
+    sevnup.addKey('derp', function(err) {
+        assert.equal(err.message, 'fail');
         assert.ok(logged);
         assert.end();
-    }
+    });
 });
 
-test('Sevnup attached lookup does nothing if the key does not belong to sevnup', function(assert) {
+test('Sevnup addKey does nothing if the key does not belong to sevnup', function(assert) {
     var ring = new MockRing('B');
     ring.changeRing({
         0: 'A'
@@ -173,15 +195,14 @@ test('Sevnup attached lookup does nothing if the key does not belong to sevnup',
     store.addKey = function() {
         assert.fail();
     };
-    createSevnup({
+    var sevnup = createSevnup({
         store: store,
         ring: ring,
         totalVNodes: 1
     });
-    ring.ready();
-
-    setTimeout(function() {
-        assert.equal(ring.lookup('derp'), 'A');
+    sevnup.addKey('derp');
+    sevnup.addKey('derp', function(err) {
+        assert.ifErr(err);
         assert.end();
     });
 });
