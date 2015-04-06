@@ -16,6 +16,7 @@ var MAX_PARALLEL_TASKS = 10;
  *   recoverKey
  *   releaseKey
  *   totalVNodes
+ *   addOnLookup
  *   logger
  */
 function Sevnup(params) {
@@ -31,25 +32,57 @@ function Sevnup(params) {
 
     this.ownedVNodes = [];
 
-    this._attachToRing();
+    this._attachToRing(params.addOnLookup);
 }
 
-Sevnup.prototype._attachToRing = function _attachToRing() {
+/**
+ * Adds a key to sevnup if it belongs to the current worker.
+ * @param {string} key The key you want to add.
+ * @param {function} done Optional callback if you want to listen to completion
+ */
+Sevnup.prototype.addKey = function addKey(key, done) {
+    var self = this;
+    var vnode = this._getVNodeForKey(key);
+    var node = this.hashRingLookup(vnode);
+    if (this.hashRing.whoami() === node) {
+        this.store.addKey(vnode, key, function(err) {
+            if (err) {
+                self.logger.error("Sevnup.sevnupLookup failed to persist key", {
+                    vnode: vnode,
+                    key: key,
+                    error: err
+                });
+            }
+            if (done) {
+                done(err);
+            }
+        });
+    } else if (done) {
+        done();
+    }
+};
+
+/**
+ * When you are done working on a key, or no longer want it within bookkeeping
+ * you can alert sevnup to forget it.  This notifies the ring that it doesn't
+ * need attention in the event this node goes down or hands off ownership.
+ * We want the service to be ignorant of vnodes so we rediscover the vnode.
+ * @param {string} key The key you have finished work on.
+ * @param {function} done Optional callback if you want to listen to completion
+ */
+Sevnup.prototype.workCompleteOnKey = function workCompleteOnKey(key, done) {
+    var vnode = this._getVNodeForKey(key);
+    this.store.removeKey(vnode, key, done);
+};
+
+Sevnup.prototype._attachToRing = function _attachToRing(addOnLookup) {
     var self = this;
 
     this.hashRing.lookup = function sevnupLookup(key) {
         var vnode = self._getVNodeForKey(key);
         var node = self.hashRingLookup(vnode);
-        if (self.hashRing.whoami() === node) {
-            self.store.addKey(vnode, key, function(err) {
-                if (err) {
-                    self.logger.error("Sevnup.sevnupLookup failed to persist key", {
-                        vnode: vnode,
-                        key: key,
-                        error: err
-                    });
-                }
-            });
+        if (addOnLookup) {
+            self.addKey(key);
         }
         return node;
     };
@@ -184,20 +217,6 @@ Sevnup.prototype._releaseKey = function _releaseKey(vnode, key, done) {
         // Swallow
         done();
     });
-};
-
-
-/**
- * When you are done working on a key, or no longer want it within bookkeeping
- * you can alert sevnup to forget it.  This notifies the ring that it doesn't
- * need attention in the event this node goes down or hands off ownership.
- * We want the service to be ignorant of vnodes so we rediscover the vnode.
- * @param {string} key The key you have finished work on.
- * @param {function} done Optional callback if you want to listen to completion
- */
-Sevnup.prototype.workCompleteOnKey = function workCompleteOnKey(key, done) {
-    var vnode = this._getVNodeForKey(key);
-    this.store.removeKey(vnode, key, done);
 };
 
 /**
