@@ -155,7 +155,7 @@ Sevnup.prototype._onRingStateChange = function _onRingStateChange() {
 Sevnup.prototype._forEachKeyInVNodes = function _forEachKeyInVNodes(vnodes, onKey, done) {
     var self = this;
 
-    async.eachLimit(vnodes, MAX_PARALLEL_TASKS, onVNode, done);
+    async.eachSeries(vnodes, onVNode, done);
 
     function onVNode(vnode, next) {
         async.waterfall([
