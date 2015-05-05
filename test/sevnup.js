@@ -59,7 +59,7 @@ function sevnupFlow(assert, earlyReady) {
         ring.ready();
     }
 
-    createSevnup({
+    var sevnup = createSevnup({
         store: store,
         ring: ring,
         recover: recover,
@@ -80,13 +80,17 @@ function sevnupFlow(assert, earlyReady) {
 
         released = [];
         recovered = [];
+        sevnup.getOwnedKeys(function(err, keys) {
+            assert.ifErr(err);
+            assert.deepEqual(keys.sort(), ['k2', 'k3']);
 
-        ring.changeRing({
-            0: 'B',
-            1: 'B',
-            2: 'A'
+            ring.changeRing({
+                0: 'B',
+                1: 'B',
+                2: 'A'
+            });
+            setTimeout(checkRingChange, 100);
         });
-        setTimeout(checkRingChange, 100);
     }
 
     function checkRingChange() {
@@ -95,7 +99,11 @@ function sevnupFlow(assert, earlyReady) {
         assert.deepEqual(store.loadKeys(0), ['k2']);
         assert.deepEqual(store.loadKeys(1), ['k3']);
         assert.deepEqual(store.loadKeys(2), ['k4']);
-        assert.end();
+        sevnup.getOwnedKeys(function(err, keys) {
+            assert.ifErr(err);
+            assert.deepEqual(keys.sort(), ['k4']);
+            assert.end();
+        });
     }
 }
 
