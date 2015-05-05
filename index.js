@@ -77,7 +77,7 @@ Sevnup.prototype.workCompleteOnKey = function workCompleteOnKey(key, done) {
 
 Sevnup.prototype.getOwnedKeys = function getOwnedKeys(done) {
     async.waterfall([
-        async.mapLimit.bind(async, this.ownedVNodes, MAX_PARALLEL_TASKS, this.store.loadKeys.bind(this.store)),
+        async.mapLimit.bind(async, this._getOwnedVNodes(), MAX_PARALLEL_TASKS, this.store.loadKeys.bind(this.store)),
         function(keys, next) {
             next(null, _.flatten(keys));
         }
