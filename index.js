@@ -75,6 +75,15 @@ Sevnup.prototype.workCompleteOnKey = function workCompleteOnKey(key, done) {
     this.store.removeKey(vnode, key, done);
 };
 
+Sevnup.prototype.getOwnedKeys = function getOwnedKeys(done) {
+    async.waterfall([
+        async.mapLimit.bind(async, this.ownedVNodes, MAX_PARALLEL_TASKS, this.store.loadKeys.bind(this.store)),
+        function(keys, next) {
+            next(null, _.flatten(keys));
+        }
+    ], done);
+};
+
 Sevnup.prototype._attachToRing = function _attachToRing(addOnLookup) {
     var self = this;
 
