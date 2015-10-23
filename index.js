@@ -32,6 +32,8 @@ function Sevnup(params) {
 
     this.ownedVNodes = [];
 
+    this.stateChangeQueue = async.queue(this._handleRingStateChange.bind(this), 1);
+
     this._attachToRing(params.addOnLookup);
 }
 
@@ -128,11 +130,6 @@ Sevnup.prototype._getOwnedVNodes = function _getOwnedVNodes() {
     return results;
 };
 
-/**
- * Takes a hashRing and subscribes to the correct events to maintain VNode
- * ownership.
- * @param {object} hashRing A ringPop implementation of a hashring.
- */
 Sevnup.prototype._onRingStateChange = function _onRingStateChange() {
     var self = this;
     if (this.calmTimeout) {
@@ -141,24 +138,30 @@ Sevnup.prototype._onRingStateChange = function _onRingStateChange() {
     this.calmTimeout = setTimeout(execute, this.calmThreshold);
 
     function execute() {
-        var oldOwnedVNodes = self.ownedVNodes;
-        var newOwnedVNodes = self.ownedVNodes = self._getOwnedVNodes();
-
-        var nodesToRelease = _.difference(oldOwnedVNodes, newOwnedVNodes);
-        var nodesToRecover = _.difference(newOwnedVNodes, oldOwnedVNodes);
-
-        self.logger.info('Sevnup._onRingStateChange', {
-            releasing: nodesToRelease,
-            recovering: nodesToRecover
-        });
-
-        async.parallel([
-            self._forEachKeyInVNodes.bind(self, nodesToRelease, self._releaseKey.bind(self)),
-            self._forEachKeyInVNodes.bind(self, nodesToRecover, self._recoverKey.bind(self))
-        ], function() {
-            nodesToRelease.forEach(self.store.releaseFromCache.bind(self.store));
-        });
+        self.stateChangeQueue.push(true);
     }
+};
+
+Sevnup.prototype._handleRingStateChange = function _handleRingStateChange(arg, done) {
+    var self = this;
+    var oldOwnedVNodes = self.ownedVNodes;
+    var newOwnedVNodes = self.ownedVNodes = self._getOwnedVNodes();
+
+    var nodesToRelease = _.difference(oldOwnedVNodes, newOwnedVNodes);
+    var nodesToRecover = _.difference(newOwnedVNodes, oldOwnedVNodes);
+
+    self.logger.info('Sevnup._onRingStateChange', {
+        releasing: nodesToRelease,
+        recovering: nodesToRecover
+    });
+
+    async.parallel([
+        self._forEachKeyInVNodes.bind(self, nodesToRelease, self._releaseKey.bind(self)),
+        self._forEachKeyInVNodes.bind(self, nodesToRecover, self._recoverKey.bind(self))
+    ], function() {
+        nodesToRelease.forEach(self.store.releaseFromCache.bind(self.store));
+        done();
+    });
 };
 
 Sevnup.prototype._forEachKeyInVNodes = function _forEachKeyInVNodes(vnodes, onKey, done) {
