@@ -132,6 +132,10 @@ Sevnup.prototype._getOwnedVNodes = function _getOwnedVNodes() {
 
 Sevnup.prototype._onRingStateChange = function _onRingStateChange() {
     var self = this;
+    if (this.stateChangeQueue.length() > 0) {
+        // Ring change already queued
+        return;
+    }
     if (this.calmTimeout) {
         clearTimeout(this.calmTimeout);
     }
