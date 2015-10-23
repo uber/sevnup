@@ -360,6 +360,54 @@ test('Sevnup._onRingStateChange waits for calm before processing ring state chan
     }
 });
 
+test('Sevnup._onRingStateChange limits to one queued state change update', function(assert) {
+    var ring = new MockRing('A');
+    ring.changeRing({
+        0: 'A'
+    });
+    var store = new MockStore();
+    store.addKey(0, 'k1');
+
+    var recovers = 0;
+    var releases = 0;
+    var logs = 0;
+    var sevnup = createSevnup({
+        store: store,
+        ring: ring,
+        totalVNodes: 1,
+        recover: function() {
+            recovers++;
+        },
+        release: function() {
+            releases++;
+        },
+        logger: {
+            info: function() {
+                logs++;
+            }
+        },
+        calmThreshold: 0
+    });
+    ring.ready();
+    setTimeout(function() {
+        ring.changeRing({
+            0: 'B'
+        });
+        setTimeout(checkResults, 10);
+    }, 10);
+
+    function checkResults() {
+        ring.changeRing({
+            0: 'A'
+        });
+        assert.equal(sevnup.stateChangeQueue.length(), 1);
+        assert.equal(recovers, 1);
+        assert.equal(releases, 0);
+        assert.equal(logs, 1);
+        assert.end();
+    }
+});
+
 test('Sevnup.destroy stops timers', function(assert) {
     var ring = new MockRing('A');
     ring.changeRing({
