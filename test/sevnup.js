@@ -29,6 +29,19 @@ test('Sevnup default params', function(assert) {
     assert.end();
 });
 
+test('Sevnup watch mode', function(assert) {
+    var ring = new MockRing('A');
+    var sevnup = new Sevnup({
+        hashRing: ring,
+        store: {},
+        watchMode: true
+    });
+    assert.ok(sevnup.calmThreshold);
+    assert.ok(sevnup.totalVNodes);
+    assert.deepEqual(sevnup.hashRing.lookup, MockRing.prototype.lookup, 'Lookup didn\'t change');
+    assert.end();
+});
+
 function sevnupFlow(assert, earlyReady) {
     var ring = new MockRing('A');
     ring.changeRing({

@@ -29,6 +29,7 @@ function Sevnup(params) {
     this.logger = params.logger;
     this.calmThreshold = params.calmThreshold || DEFAULT_CALM_THRESHOLD;
     this.calmTimeout = null;
+    this.watchMode = params.watchMode;
 
     this.ownedVNodes = [];
 
@@ -89,14 +90,16 @@ Sevnup.prototype.getOwnedKeys = function getOwnedKeys(done) {
 Sevnup.prototype._attachToRing = function _attachToRing(addOnLookup) {
     var self = this;
 
-    this.hashRing.lookup = function sevnupLookup(key) {
-        var vnode = self._getVNodeForKey(key);
-        var node = self.hashRingLookup(vnode);
-        if (addOnLookup) {
-            self.addKey(key);
-        }
-        return node;
-    };
+    if (!this.watchMode) {
+        this.hashRing.lookup = function sevnupLookup(key) {
+            var vnode = self._getVNodeForKey(key);
+            var node = self.hashRingLookup(vnode);
+            if (addOnLookup) {
+                self.addKey(key);
+            }
+            return node;
+        };
+    }
 
     if (this.hashRing.isReady) {
         onReady();
