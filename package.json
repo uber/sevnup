@@ -1,6 +1,6 @@
 {
   "name": "sevnup",
-  "version": "3.1.4",
+  "version": "3.2.0",
   "description": "Recover keys on virtual node ownership changes",
   "keywords": [],
   "author": "joseph<joseph@uber.com>",
