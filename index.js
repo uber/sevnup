@@ -12,16 +12,18 @@ var MAX_PARALLEL_TASKS = 10;
 /**
  * Params are:
  *   hashRing
+ *   hashRingLookup (optional)
  *   store
  *   recoverKey
  *   releaseKey
  *   totalVNodes
  *   addOnLookup
  *   logger
+ *   watchMode
  */
 function Sevnup(params) {
     this.hashRing = params.hashRing;
-    this.hashRingLookup = this.hashRing.lookup.bind(this.hashRing);
+    this.hashRingLookup = this.hashRing.lookup.bind(this.hashRing) || params.hashRingLookup;
     this.store = new CacheStore(params.store);
     this.recoverKeyCallback = params.recoverKey;
     this.releaseKeyCallback = params.releaseKey;
@@ -30,6 +32,7 @@ function Sevnup(params) {
     this.calmThreshold = params.calmThreshold || DEFAULT_CALM_THRESHOLD;
     this.calmTimeout = null;
     this.watchMode = params.watchMode;
+    this.running = true;
 
     this.ownedVNodes = [];
 
@@ -135,6 +138,10 @@ Sevnup.prototype._getOwnedVNodes = function _getOwnedVNodes() {
 
 Sevnup.prototype._onRingStateChange = function _onRingStateChange() {
     var self = this;
+    if (!this.running) {
+        // Shutdown
+        return;
+    }
     if (this.stateChangeQueue.length() > 0) {
         // Ring change already queued
         return;
@@ -249,4 +256,19 @@ Sevnup.prototype._getVNodeForKey = function _getVNodeForKey(key) {
 
 Sevnup.prototype.destroy = function destroy() {
     clearTimeout(this.calmTimeout);
+};
+
+Sevnup.prototype.shutdownAndRelease = function shutdownAndRelease(done) {
+    var self = this;
+    this.destroy();
+    this.running = false;
+    if (this.stateChangeQueue.idle()) {
+        releaseAll();
+    } else {
+        this.stateChangeQueue.drain = releaseAll;
+    }
+
+    function releaseAll() {
+        self._forEachKeyInVNodes(self.ownedVNodes, self._releaseKey.bind(self), done);
+    }
 };

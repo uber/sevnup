@@ -453,3 +453,101 @@ test('Sevnup.destroy stops timers', function(assert) {
         assert.end();
     }
 });
+
+test('Sevnup.shutdownAndRelease when idle', function(assert) {
+    var ring = new MockRing('A');
+    ring.changeRing({
+        0: 'A'
+    });
+    var store = new MockStore();
+    store.addKey(0, 'k1');
+
+    var recovers = 0;
+    var releases = 0;
+    var logs = 0;
+    var sevnup = createSevnup({
+        store: store,
+        ring: ring,
+        totalVNodes: 1,
+        recover: function(k, done) {
+            recovers++;
+            done(null, false);
+        },
+        release: function(k, done) {
+            releases++;
+            done();
+        },
+        logger: {
+            info: function() {
+                logs++;
+            }
+        },
+        calmThreshold: 0
+    });
+    ring.ready();
+    setTimeout(function() {
+        setTimeout(checkResults, 10);
+    }, 10);
+
+    function checkResults() {
+        assert.equal(recovers, 1);
+        assert.equal(releases, 0);
+        assert.equal(logs, 1);
+        sevnup.shutdownAndRelease(function() {
+            assert.equal(releases, 1, 'released on shutdown');
+            assert.end();
+        });
+    }
+});
+
+test('Sevnup.shutdownAndRelease when updating', function(assert) {
+    var ring = new MockRing('A');
+    ring.changeRing({
+        0: 'A'
+    });
+    var store = new MockStore();
+    store.addKey(0, 'k1');
+
+    var cont;
+
+    var recovers = 0;
+    var releases = 0;
+    var logs = 0;
+    var sevnup = createSevnup({
+        store: store,
+        ring: ring,
+        totalVNodes: 1,
+        recover: function(k, done) {
+            recovers++;
+            cont = function() { done(null, false); };
+        },
+        release: function(k, done) {
+            releases++;
+            done();
+        },
+        logger: {
+            info: function() {
+                logs++;
+            }
+        },
+        calmThreshold: 0
+    });
+    ring.ready();
+    setTimeout(function() {
+        setTimeout(checkResults, 10);
+    }, 10);
+
+    function checkResults() {
+        assert.notOk(sevnup.stateChangeQueue.idle());
+        assert.equal(recovers, 1);
+        assert.equal(releases, 0);
+        assert.equal(logs, 1);
+        sevnup.shutdownAndRelease(function() {
+            setTimeout(function() {
+                assert.equal(releases, 1, 'released on shutdown');
+                assert.end();
+            }, 10);
+        });
+        cont();
+    }
+});
