@@ -23,7 +23,7 @@ var MAX_PARALLEL_TASKS = 10;
  */
 function Sevnup(params) {
     this.hashRing = params.hashRing;
-    this.hashRingLookup = this.hashRing.lookup.bind(this.hashRing) || params.hashRingLookup;
+    this.hashRingLookup = params.hashRingLookup || this.hashRing.lookup.bind(this.hashRing);
     this.store = new CacheStore(params.store);
     this.recoverKeyCallback = params.recoverKey;
     this.releaseKeyCallback = params.releaseKey;
