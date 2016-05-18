@@ -224,6 +224,7 @@ test('Sevnup addKey does nothing if the key does not belong to sevnup', function
     sevnup.addKey('derp');
     sevnup.addKey('derp', function(err) {
         assert.ifErr(err);
+        assert.notOk(sevnup.isPotentiallyOwnedKey('derp'));
         assert.end();
     });
 });
