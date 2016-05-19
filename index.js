@@ -272,3 +272,9 @@ Sevnup.prototype.shutdownAndRelease = function shutdownAndRelease(done) {
         self._forEachKeyInVNodes(self.ownedVNodes, self._releaseKey.bind(self), done);
     }
 };
+
+Sevnup.prototype.isPotentiallyOwnedKey = function isPotentiallyOwnedKey(key) {
+    var vnode = this._getVNodeForKey(key);
+    var node = this.hashRingLookup(vnode);
+    return this.hashRing.whoami() === node;
+};
