@@ -38,6 +38,7 @@ function Sevnup(params) {
 
     this.stateChangeQueue = async.queue(this._handleRingStateChange.bind(this), 1);
 
+    this.eventHandler = this._onRingStateChange.bind(this);
     this._attachToRing(params.addOnLookup);
 }
 
@@ -111,7 +112,7 @@ Sevnup.prototype._attachToRing = function _attachToRing(addOnLookup) {
     }
 
     function onReady() {
-        self.hashRing.on('ringChanged', self._onRingStateChange.bind(self));
+        self.hashRing.on('ringChanged', self.eventHandler);
         self._onRingStateChange();
     }
 };
@@ -262,6 +263,8 @@ Sevnup.prototype.shutdownAndRelease = function shutdownAndRelease(done) {
     var self = this;
     this.destroy();
     this.running = false;
+    this.hashRing.removeListener('ringChanged', this.eventHandler);
+
     if (this.stateChangeQueue.idle()) {
         releaseAll();
     } else {
