@@ -83,6 +83,10 @@ Sevnup.prototype.addKeyToVNode = function addKeyToVNode(key, vnode, done) {
  */
 Sevnup.prototype.workCompleteOnKey = function workCompleteOnKey(key, done) {
     var vnode = this.getVNodeForKey(key);
+    this.workCompleteOnKeyInVNode(key, vnode, done);
+};
+
+Sevnup.prototype.workCompleteOnKeyInVNode = function workCompleteOnKeyInVNode(key, vnode, done) {
     this.store.removeKey(vnode, key, done);
 };
 
