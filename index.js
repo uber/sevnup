@@ -48,8 +48,12 @@ function Sevnup(params) {
  * @param {function} done Optional callback if you want to listen to completion
  */
 Sevnup.prototype.addKey = function addKey(key, done) {
+    var vnode = this.getVNodeForKey(key);
+    return this.addKeyToVNode(key, vnode, done);
+};
+
+Sevnup.prototype.addKeyToVNode = function addKeyToVNode(key, vnode, done) {
     var self = this;
-    var vnode = this._getVNodeForKey(key);
     var node = this.hashRingLookup(vnode);
     if (this.hashRing.whoami() === node) {
         this.store.addKey(vnode, key, function(err) {
@@ -78,7 +82,7 @@ Sevnup.prototype.addKey = function addKey(key, done) {
  * @param {function} done Optional callback if you want to listen to completion
  */
 Sevnup.prototype.workCompleteOnKey = function workCompleteOnKey(key, done) {
-    var vnode = this._getVNodeForKey(key);
+    var vnode = this.getVNodeForKey(key);
     this.store.removeKey(vnode, key, done);
 };
 
@@ -96,7 +100,7 @@ Sevnup.prototype._attachToRing = function _attachToRing(addOnLookup) {
 
     if (!this.watchMode) {
         this.hashRing.lookup = function sevnupLookup(key) {
-            var vnode = self._getVNodeForKey(key);
+            var vnode = self.getVNodeForKey(key);
             var node = self.hashRingLookup(vnode);
             if (addOnLookup) {
                 self.addKey(key);
@@ -251,7 +255,7 @@ Sevnup.prototype._releaseKey = function _releaseKey(vnode, key, done) {
  * correct node, via looking up by vnode name.
  * @param {string} key The key to match to a vnode.
  */
-Sevnup.prototype._getVNodeForKey = function _getVNodeForKey(key) {
+Sevnup.prototype.getVNodeForKey = function getVNodeForKey(key) {
     return farmhash.hash32(key) % this.totalVNodes;
 };
 
@@ -277,7 +281,7 @@ Sevnup.prototype.shutdownAndRelease = function shutdownAndRelease(done) {
 };
 
 Sevnup.prototype.isPotentiallyOwnedKey = function isPotentiallyOwnedKey(key) {
-    var vnode = this._getVNodeForKey(key);
+    var vnode = this.getVNodeForKey(key);
     var node = this.hashRingLookup(vnode);
     return this.hashRing.whoami() === node;
 };
