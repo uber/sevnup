@@ -260,7 +260,7 @@ Sevnup.prototype._releaseKey = function _releaseKey(vnode, key, done) {
  * @param {string} key The key to match to a vnode.
  */
 Sevnup.prototype.getVNodeForKey = function getVNodeForKey(key) {
-    return farmhash.hash32(key) % this.totalVNodes;
+    return farmhash.hash32v1(key) % this.totalVNodes;
 };
 
 Sevnup.prototype.destroy = function destroy() {
