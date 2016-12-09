@@ -45,7 +45,7 @@ CacheStore.prototype.loadKeys = function loadKeys(vnode, done) {
     var self = this;
     return setImmediate(function() {
         if (_.has(self.cache, vnode)) {
-            return done(null, self.cache[vnode]);
+            return done(null, Object.keys(self.cache[vnode]));
         }
         self.store.loadKeys(vnode, function(err, keys) {
             if (!err) {
