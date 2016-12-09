@@ -44,8 +44,9 @@ CacheStore.prototype.removeKey = function removeKey(vnode, key, done) {
 CacheStore.prototype.loadKeys = function loadKeys(vnode, done) {
     var self = this;
     if (_.has(this.cache, vnode)) {
+        var obj = this.cache[vnode];
         return setImmediate(function() {
-            done(null, Object.keys(self.cache[vnode]));
+            done(null, Object.keys(obj));
         });
     }
     this.store.loadKeys(vnode, function(err, keys) {
