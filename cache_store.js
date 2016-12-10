@@ -43,19 +43,19 @@ CacheStore.prototype.removeKey = function removeKey(vnode, key, done) {
 
 CacheStore.prototype.loadKeys = function loadKeys(vnode, done) {
     var self = this;
-    if (_.has(this.cache, vnode)) {
-        return setImmediate(function() {
-            done(null, Object.keys(self.cache[vnode] || {}));
-        });
-    }
-    this.store.loadKeys(vnode, function(err, keys) {
-        if (!err) {
-            var set = self.cache[vnode] = Object.create(null);
-            keys.forEach(function(key) {
-                set[key] = true;
-            });
+    setImmediate(function() {
+        if (_.has(self.cache, vnode)) {
+            return done(null, Object.keys(self.cache[vnode]));
         }
-        done(err, keys);
+        self.store.loadKeys(vnode, function (err, keys) {
+            if (!err) {
+                var set = self.cache[vnode] = Object.create(null);
+                keys.forEach(function (key) {
+                    set[key] = true;
+                });
+            }
+            done(err, keys);
+        });
     });
 };
 
