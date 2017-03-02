@@ -13,7 +13,9 @@ function createSevnup(params) {
         logger: params.logger || console,
         totalVNodes: params.totalVNodes,
         calmThreshold: 1 || params.calmThreshold,
-        addOnLookup: params.addOnLookup
+        addOnLookup: params.addOnLookup,
+        retryIntervalMs: params.retryIntervalMs,
+        retryRecoverOnFailure: params.retryRecoverOnFailure
     });
     return sevnup;
 }
@@ -42,7 +44,7 @@ test('Sevnup watch mode', function(assert) {
     assert.end();
 });
 
-function sevnupFlow(assert, earlyReady) {
+function sevnupFlow(assert, earlyReady, retryOnFailures, numOfFailures) {
     var ring = new MockRing('A');
     ring.changeRing({
         0: 'A',
@@ -50,6 +52,8 @@ function sevnupFlow(assert, earlyReady) {
         2: 'B'
     });
 
+    var recoverFailures = 0;
+    var releaseFailures = 0;
     var store = new MockStore();
     store.addKey(0, 'k1');
     store.addKey(0, 'k2');
@@ -58,12 +62,20 @@ function sevnupFlow(assert, earlyReady) {
 
     var recovered = [];
     function recover(key, done) {
+        if (recoverFailures < numOfFailures) {
+            recoverFailures++;
+            return done(new Error("Failure"));
+        }
         recovered.push(key);
         done(null, key === 'k1');
     }
 
     var released = [];
     function release(key, done) {
+        if (releaseFailures < numOfFailures) {
+            releaseFailures++;
+            return done(new Error("Failure"));
+        }
         released.push(key);
         done();
     }
@@ -76,7 +88,9 @@ function sevnupFlow(assert, earlyReady) {
         store: store,
         ring: ring,
         recover: recover,
-        release: release
+        release: release,
+        retryRecoverOnFailure: retryOnFailures,
+        retryIntervalMs: 1
     });
 
     if  (!earlyReady) {
@@ -126,6 +140,10 @@ test('Sevnup initial recovery, then recovery and release as ring state changes -
 
 test('Sevnup initial recovery, then recovery and release as ring state changes - early ready', function(assert) {
     sevnupFlow(assert, true);
+});
+
+test('Sevnup initial recovery, then recovery and release as ring state changes - retry failures', function(assert) {
+    sevnupFlow(assert, false, true, 20);
 });
 
 test('Sevnup attached lookup persists owned key if addOnLookup true', function(assert) {
@@ -242,7 +260,7 @@ test('Sevnup._recoverKey handles recoverKey error', function(assert) {
         }
     };
     Sevnup.prototype._recoverKey.call(sevnup, 'V', 'K', function(err) {
-        assert.ifErr(err);
+        assert.ok(err);
         assert.ok(logged);
         assert.end();
     });
@@ -285,7 +303,7 @@ test('Sevnup._releaseKey handles error', function(assert) {
         }
     };
     Sevnup.prototype._releaseKey.call(sevnup, 'V', 'K', function(err) {
-        assert.ifErr(err);
+        assert.ok(err);
         assert.ok(logged);
         assert.end();
     });

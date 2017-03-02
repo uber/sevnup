@@ -28,6 +28,7 @@
         "clearTimeout": true,
         "setInterval": true,
         "clearInterval": true,
+        "setImmediate": true,
         "require": false,
         "module": false,
         "exports": true,
