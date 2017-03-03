@@ -15,7 +15,8 @@ function createSevnup(params) {
         calmThreshold: 1 || params.calmThreshold,
         addOnLookup: params.addOnLookup,
         retryIntervalMs: params.retryIntervalMs,
-        retryRecoverOnFailure: params.retryRecoverOnFailure
+        retryRecoverOnFailure: params.retryRecoverOnFailure,
+        statsd: params.statsd
     });
     return sevnup;
 }
@@ -144,6 +145,42 @@ test('Sevnup initial recovery, then recovery and release as ring state changes -
 
 test('Sevnup initial recovery, then recovery and release as ring state changes - retry failures', function(assert) {
     sevnupFlow(assert, false, true, 20);
+});
+
+test('Sevnup _withRetry stats failures', function(assert) {
+    var stats = [];
+    var sevnup = createSevnup({
+        ring: new MockRing('A'),
+        store: new MockStore(),
+        statsd: {
+            increment: function _increment(name, val, opts) {
+                stats.push({
+                    name: name,
+                    opts: opts
+                });
+            }
+        },
+        retryIntervalMs: 1,
+        retryRecoverOnFailure: true
+    });
+    var error = true;
+    sevnup._withRetry('retryPlease', function _cb(cb) {
+        if (error) {
+            error = false;
+            return cb(new Error("ERROR, please retry me"));
+        }
+        cb();
+    }, function _d() {
+        assert.deepEqual(stats, [{
+            name: "sevnup.retrying",
+            opts: {
+                tags: {
+                    type: 'retryPlease'
+                }
+            }
+        }]);
+        assert.end();
+    });
 });
 
 test('Sevnup attached lookup persists owned key if addOnLookup true', function(assert) {

@@ -30,6 +30,7 @@ function Sevnup(params) {
     this.releaseKeyCallback = params.releaseKey;
     this.totalVNodes = params.totalVNodes || DEFAULT_TOTAL_VNODES;
     this.logger = params.logger;
+    this.statsd = params.statsd;
     this.calmThreshold = params.calmThreshold || DEFAULT_CALM_THRESHOLD;
     this.calmTimeout = null;
     this.watchMode = params.watchMode;
@@ -198,7 +199,7 @@ Sevnup.prototype._forEachKeyInVNodesWithRetry = function _forEachKeyInVNodesWith
     function onVNode(vnode, next) {
         async.waterfall([
             function _loadWithRetries(wNext) {
-                maybeWithRetry(self.store.loadKeys.bind(self.store, vnode), wNext);
+                maybeWithRetry("loadkeys", self.store.loadKeys.bind(self.store, vnode), wNext);
             },
             onKeys.bind(null, vnode),
         ], next);
@@ -206,15 +207,15 @@ Sevnup.prototype._forEachKeyInVNodesWithRetry = function _forEachKeyInVNodesWith
 
     function onKeys(vnode, keys, next) {
         async.eachLimit(keys, MAX_PARALLEL_TASKS, function _try(key, eNext) {
-            maybeWithRetry(function _try(cb) {
+            maybeWithRetry("onkey", function _try(cb) {
                 onKey(vnode, key, cb);
             }, eNext);
         }, next);
     }
 
-    function maybeWithRetry(fn, cb) {
+    function maybeWithRetry(retryName, fn, cb) {
         if (retryErrors) {
-            self._withRetry(fn, cb);
+            self._withRetry(retryName, fn, cb);
         } else {
             fn(function _noRetry() {
                 // Ignore errors
@@ -228,11 +229,14 @@ Sevnup.prototype._forEachKeyInVNodes = function _forEachKeyInVNodes(vnodes, onKe
     this._forEachKeyInVNodesWithRetry(false, vnodes, onKey, done);
 };
 
-Sevnup.prototype._withRetry = function _withRetry(fn, done) {
+Sevnup.prototype._withRetry = function _withRetry(retryName, fn, done) {
     var self = this;
     fn(function _checkError(err) {
         if (err) {
-            setTimeout(self._withRetry.bind(self, fn, done), self.retryIntervalMs);
+            self.maybeIncrementStat('sevnup.retrying', {
+                type: retryName
+            });
+            setTimeout(self._withRetry.bind(self, retryName, fn, done), self.retryIntervalMs);
             return;
         }
         done.apply(done, arguments);
@@ -323,4 +327,12 @@ Sevnup.prototype.isPotentiallyOwnedKey = function isPotentiallyOwnedKey(key) {
     var vnode = this.getVNodeForKey(key);
     var node = this.hashRingLookup(vnode);
     return this.hashRing.whoami() === node;
+};
+
+Sevnup.prototype.maybeIncrementStat = function maybeIncrementStat(statName, tags) {
+    if (this.statsd) {
+        this.statsd.increment(statName, 1, {
+            tags: tags
+        });
+    }
 };
