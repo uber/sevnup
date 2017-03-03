@@ -236,7 +236,10 @@ Sevnup.prototype._withRetry = function _withRetry(retryName, fn, done) {
             self.maybeIncrementStat('sevnup.retrying', {
                 type: retryName
             });
-            setTimeout(self._withRetry.bind(self, retryName, fn, done), self.retryIntervalMs);
+            setTimeout(
+                self._withRetry.bind(self, retryName, fn, done),
+                self.retryIntervalMs
+            ).unref();
             return;
         }
         done.apply(done, arguments);

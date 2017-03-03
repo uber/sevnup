@@ -164,6 +164,8 @@ test('Sevnup _withRetry stats failures', function(assert) {
         retryRecoverOnFailure: true
     });
     var error = true;
+    // Hold the process to ensure the unrefed timeout in the retry function executes
+    var t = setTimeout(function _noop(){}, 1000);
     sevnup._withRetry('retryPlease', function _cb(cb) {
         if (error) {
             error = false;
@@ -179,6 +181,7 @@ test('Sevnup _withRetry stats failures', function(assert) {
                 }
             }
         }]);
+        clearTimeout(t);
         assert.end();
     });
 });
