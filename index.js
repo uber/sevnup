@@ -7,6 +7,7 @@ var CacheStore = require('./cache_store');
 
 var DEFAULT_TOTAL_VNODES = 1024;
 var DEFAULT_CALM_THRESHOLD = 500;
+var DEFAULT_RETRY_INTERVAL_MS = 5000;
 var MAX_PARALLEL_TASKS = 10;
 
 /**
@@ -29,10 +30,13 @@ function Sevnup(params) {
     this.releaseKeyCallback = params.releaseKey;
     this.totalVNodes = params.totalVNodes || DEFAULT_TOTAL_VNODES;
     this.logger = params.logger;
+    this.statsd = params.statsd;
     this.calmThreshold = params.calmThreshold || DEFAULT_CALM_THRESHOLD;
     this.calmTimeout = null;
     this.watchMode = params.watchMode;
     this.running = true;
+    this.retryIntervalMs = params.retryIntervalMs || DEFAULT_RETRY_INTERVAL_MS;
+    this.retryRecoverOnFailure = params.retryRecoverOnFailure || false;
 
     this.ownedVNodes = [];
 
@@ -179,29 +183,67 @@ Sevnup.prototype._handleRingStateChange = function _handleRingStateChange(arg, d
     });
 
     async.parallel([
-        self._forEachKeyInVNodes.bind(self, nodesToRelease, self._releaseKey.bind(self)),
-        self._forEachKeyInVNodes.bind(self, nodesToRecover, self._recoverKey.bind(self))
+        self._forEachKeyInVNodesWithRetry.bind(self, self.retryRecoverOnFailure, nodesToRelease, self._releaseKey.bind(self)),
+        self._forEachKeyInVNodesWithRetry.bind(self, self.retryRecoverOnFailure, nodesToRecover, self._recoverKey.bind(self))
     ], function() {
         nodesToRelease.forEach(self.store.releaseFromCache.bind(self.store));
         done();
     });
 };
 
-Sevnup.prototype._forEachKeyInVNodes = function _forEachKeyInVNodes(vnodes, onKey, done) {
+Sevnup.prototype._forEachKeyInVNodesWithRetry = function _forEachKeyInVNodesWithRetry(retryErrors, vnodes, onKey, done) {
     var self = this;
 
     async.eachSeries(vnodes, onVNode, done);
 
     function onVNode(vnode, next) {
         async.waterfall([
-            self.store.loadKeys.bind(self.store, vnode),
+            function _loadWithRetries(wNext) {
+                maybeWithRetry("loadkeys", self.store.loadKeys.bind(self.store, vnode), wNext);
+            },
             onKeys.bind(null, vnode),
         ], next);
     }
 
     function onKeys(vnode, keys, next) {
-        async.eachLimit(keys, MAX_PARALLEL_TASKS, onKey.bind(null, vnode), next);
+        async.eachLimit(keys, MAX_PARALLEL_TASKS, function _try(key, eNext) {
+            maybeWithRetry("onkey", function _try(cb) {
+                onKey(vnode, key, cb);
+            }, eNext);
+        }, next);
     }
+
+    function maybeWithRetry(retryName, fn, cb) {
+        if (retryErrors) {
+            self._withRetry(retryName, fn, cb);
+        } else {
+            fn(function _noRetry() {
+                // Ignore errors
+                cb.apply(cb, [null].concat(Array.prototype.slice.call(arguments, 1)));
+            });
+        }
+    }
+};
+
+Sevnup.prototype._forEachKeyInVNodes = function _forEachKeyInVNodes(vnodes, onKey, done) {
+    this._forEachKeyInVNodesWithRetry(false, vnodes, onKey, done);
+};
+
+Sevnup.prototype._withRetry = function _withRetry(retryName, fn, done) {
+    var self = this;
+    fn(function _checkError(err) {
+        if (err) {
+            self.maybeIncrementStat('sevnup.retrying', {
+                type: retryName
+            });
+            setTimeout(
+                self._withRetry.bind(self, retryName, fn, done),
+                self.retryIntervalMs
+            ).unref();
+            return;
+        }
+        done.apply(done, arguments);
+    });
 };
 
 Sevnup.prototype._recoverKey = function _recoverKey(vnode, key, done) {
@@ -234,8 +276,8 @@ Sevnup.prototype._recoverKey = function _recoverKey(vnode, key, done) {
                 error: err
             });
         }
-        // Swallow
-        done();
+        // We should propogate errors so we can properly retry if we have that setup
+        done(err);
     });
 };
 
@@ -249,8 +291,8 @@ Sevnup.prototype._releaseKey = function _releaseKey(vnode, key, done) {
                 error: err
             });
         }
-        // Swallow
-        done();
+        // We should propogate errors so we can properly retry if we have that setup
+        done(err);
     });
 };
 
@@ -288,4 +330,12 @@ Sevnup.prototype.isPotentiallyOwnedKey = function isPotentiallyOwnedKey(key) {
     var vnode = this.getVNodeForKey(key);
     var node = this.hashRingLookup(vnode);
     return this.hashRing.whoami() === node;
+};
+
+Sevnup.prototype.maybeIncrementStat = function maybeIncrementStat(statName, tags) {
+    if (this.statsd) {
+        this.statsd.increment(statName, 1, {
+            tags: tags
+        });
+    }
 };
