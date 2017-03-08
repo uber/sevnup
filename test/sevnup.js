@@ -177,7 +177,7 @@ test('Sevnup _withRetry stats failures', function(assert) {
             name: "sevnup.retrying",
             opts: {
                 tags: {
-                    type: 'retryPlease'
+                    retrytype: 'retryPlease'
                 }
             }
         }]);

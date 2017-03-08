@@ -234,7 +234,7 @@ Sevnup.prototype._withRetry = function _withRetry(retryName, fn, done) {
     fn(function _checkError(err) {
         if (err) {
             self.maybeIncrementStat('sevnup.retrying', {
-                type: retryName
+                retrytype: retryName
             });
             setTimeout(
                 self._withRetry.bind(self, retryName, fn, done),
