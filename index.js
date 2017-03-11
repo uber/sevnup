@@ -41,6 +41,9 @@ function Sevnup(params) {
     this.ownedVNodes = [];
 
     this.stateChangeQueue = async.queue(this._handleRingStateChange.bind(this), 1);
+    // Seperate the two task types such that a bad key wont prevent a key from being recovered
+    this.keyRetryQueue = async.queue(this._retryInQueue.bind(this), 1);
+    this.loadKeyRetryQueue = async.queue(this._retryInQueue.bind(this), 1);
 
     this.eventHandler = this._onRingStateChange.bind(this);
     this._attachToRing(params.addOnLookup);
@@ -169,6 +172,13 @@ Sevnup.prototype._onRingStateChange = function _onRingStateChange() {
     }
 };
 
+Sevnup.prototype._retryInQueue = function _retryInQueue(task, done) {
+    this._withRetry(task.retryName, task.fn, function _retryDone() {
+        task.cb.apply(task.cb, arguments);
+        done(); // Move the queue
+    });
+};
+
 Sevnup.prototype._handleRingStateChange = function _handleRingStateChange(arg, done) {
     var self = this;
     var oldOwnedVNodes = self.ownedVNodes;
@@ -199,7 +209,8 @@ Sevnup.prototype._forEachKeyInVNodesWithRetry = function _forEachKeyInVNodesWith
     function onVNode(vnode, next) {
         async.waterfall([
             function _loadWithRetries(wNext) {
-                maybeWithRetry("loadkeys", self.store.loadKeys.bind(self.store, vnode), wNext);
+                maybeWithRetry("loadkeys", self.loadKeyRetryQueue,
+                    self.store.loadKeys.bind(self.store, vnode), wNext);
             },
             onKeys.bind(null, vnode),
         ], next);
@@ -207,15 +218,19 @@ Sevnup.prototype._forEachKeyInVNodesWithRetry = function _forEachKeyInVNodesWith
 
     function onKeys(vnode, keys, next) {
         async.eachLimit(keys, MAX_PARALLEL_TASKS, function _try(key, eNext) {
-            maybeWithRetry("onkey", function _try(cb) {
+            maybeWithRetry("onkey", self.keyRetryQueue, function _try(cb) {
                 onKey(vnode, key, cb);
             }, eNext);
         }, next);
     }
 
-    function maybeWithRetry(retryName, fn, cb) {
+    function maybeWithRetry(retryName, queue, fn, cb) {
         if (retryErrors) {
-            self._withRetry(retryName, fn, cb);
+            self._doThenQueue(queue, {
+                retryName: retryName,
+                fn: fn,
+                cb: cb
+            });
         } else {
             fn(function _noRetry() {
                 // Ignore errors
@@ -227,6 +242,17 @@ Sevnup.prototype._forEachKeyInVNodesWithRetry = function _forEachKeyInVNodesWith
 
 Sevnup.prototype._forEachKeyInVNodes = function _forEachKeyInVNodes(vnodes, onKey, done) {
     this._forEachKeyInVNodesWithRetry(false, vnodes, onKey, done);
+};
+
+Sevnup.prototype._doThenQueue = function _doThenQueue(queue, task) {
+    task.fn(function _checkFailure(err) {
+        if (err) {
+            // Queue
+            queue.push(task);
+            return;
+        }
+        task.cb.apply(task.cb, arguments);
+    });
 };
 
 Sevnup.prototype._withRetry = function _withRetry(retryName, fn, done) {
