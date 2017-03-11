@@ -41,7 +41,7 @@ function Sevnup(params) {
     this.ownedVNodes = [];
 
     this.stateChangeQueue = async.queue(this._handleRingStateChange.bind(this), 1);
-    // Seperate the two task types such that a bad key wont prevent a key from being recovered
+    // Separate the two task types such that a bad key wont prevent a key from being recovered
     this.keyRetryQueue = async.queue(this._retryInQueue.bind(this), 1);
     this.loadKeyRetryQueue = async.queue(this._retryInQueue.bind(this), 1);
 
