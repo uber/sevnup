@@ -175,7 +175,10 @@ Sevnup.prototype._onRingStateChange = function _onRingStateChange() {
 Sevnup.prototype._retryInQueue = function _retryInQueue(task, done) {
     this._withRetry(task.retryName, task.fn, function _retryDone() {
         task.cb.apply(task.cb, arguments);
-        done(); // Move the queue
+
+        // NOTE: This is a callback passed by `async.queue` it COULD NOT be
+        //       called synchronously
+        setImmediate(done);
     });
 };
 
