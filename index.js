@@ -34,7 +34,6 @@ function Sevnup(params) {
     this.calmThreshold = params.calmThreshold || DEFAULT_CALM_THRESHOLD;
     this.calmTimeout = null;
     this.watchMode = params.watchMode;
-    this.running = true;
     this.retryIntervalMs = params.retryIntervalMs || DEFAULT_RETRY_INTERVAL_MS;
     this.retryRecoverOnFailure = params.retryRecoverOnFailure || false;
 
@@ -154,10 +153,6 @@ Sevnup.prototype._getOwnedVNodes = function _getOwnedVNodes() {
 
 Sevnup.prototype._onRingStateChange = function _onRingStateChange() {
     var self = this;
-    if (!this.running) {
-        // Shutdown
-        return;
-    }
     if (this.stateChangeQueue.length() > 0) {
         // Ring change already queued
         return;
@@ -340,9 +335,8 @@ Sevnup.prototype.destroy = function destroy() {
 
 Sevnup.prototype.shutdownAndRelease = function shutdownAndRelease(done) {
     var self = this;
-    this.destroy();
-    this.running = false;
     this.hashRing.removeListener('ringChanged', this.eventHandler);
+    this.destroy();
 
     if (this.stateChangeQueue.idle()) {
         releaseAll();
