@@ -8,7 +8,10 @@ var CacheStore = require('./cache_store');
 var DEFAULT_TOTAL_VNODES = 1024;
 var DEFAULT_CALM_THRESHOLD = 500;
 var DEFAULT_RETRY_INTERVAL_MS = 5000;
-var MAX_PARALLEL_TASKS = 10;
+
+// We're setting a modest limit to make sure we're not starving the event-loop of CPU
+// with overly aggressive setting
+var MAX_PARALLEL_TASKS = 2;
 
 /**
  * Params are:
@@ -202,12 +205,12 @@ Sevnup.prototype._handleRingStateChange = function _handleRingStateChange(arg, d
 Sevnup.prototype._forEachKeyInVNodesWithRetry = function _forEachKeyInVNodesWithRetry(retryErrors, vnodes, onKey, done) {
     var self = this;
 
-    async.eachSeries(vnodes, onVNode, done);
+    async.eachLimit(vnodes, MAX_PARALLEL_TASKS, onVNode, done);
 
     function onVNode(vnode, next) {
         async.waterfall([
             function _loadWithRetries(wNext) {
-                maybeWithRetry("loadkeys", self.loadKeyRetryQueue,
+                _tryWithRetry("loadkeys", self.loadKeyRetryQueue,
                     self.store.loadKeys.bind(self.store, vnode), wNext);
             },
             onKeys.bind(null, vnode),
@@ -215,14 +218,14 @@ Sevnup.prototype._forEachKeyInVNodesWithRetry = function _forEachKeyInVNodesWith
     }
 
     function onKeys(vnode, keys, next) {
-        async.eachLimit(keys, MAX_PARALLEL_TASKS, function _try(key, eNext) {
-            maybeWithRetry("onkey", self.keyRetryQueue, function _try(cb) {
+        async.eachLimit(keys, MAX_PARALLEL_TASKS, function _each(key, eachNext) {
+            _tryWithRetry("onkey", self.keyRetryQueue, function _each(cb) {
                 onKey(vnode, key, cb);
-            }, eNext);
+            }, eachNext);
         }, next);
     }
 
-    function maybeWithRetry(retryName, queue, fn, cb) {
+    function _tryWithRetry(retryName, queue, fn, cb) {
         if (retryErrors) {
             self._doThenQueue(queue, {
                 retryName: retryName,
