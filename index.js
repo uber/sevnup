@@ -11,7 +11,7 @@ var DEFAULT_RETRY_INTERVAL_MS = 5000;
 
 // We're setting a modest limit to make sure we're not starving the event-loop of CPU
 // with overly aggressive setting
-var MAX_PARALLEL_TASKS = 2;
+var DEFAULT_MAX_PARALLEL_TASKS = 2;
 
 /**
  * Params are:
@@ -38,6 +38,7 @@ function Sevnup(params) {
     this.calmTimeout = null;
     this.watchMode = params.watchMode;
     this.retryIntervalMs = params.retryIntervalMs || DEFAULT_RETRY_INTERVAL_MS;
+    this.maxConcurrencyLevel = params.maxConcurrencyLevel || DEFAULT_MAX_PARALLEL_TASKS;
     this.retryRecoverOnFailure = params.retryRecoverOnFailure || false;
 
     this.ownedVNodes = [];
@@ -100,8 +101,9 @@ Sevnup.prototype.workCompleteOnKeyInVNode = function workCompleteOnKeyInVNode(ke
 };
 
 Sevnup.prototype.getOwnedKeys = function getOwnedKeys(done) {
+    var self = this;
     async.waterfall([
-        async.mapLimit.bind(async, this._getOwnedVNodes(), MAX_PARALLEL_TASKS, this.store.loadKeys.bind(this.store)),
+        async.mapLimit.bind(async, self._getOwnedVNodes(), self.maxConcurrencyLevel, self.store.loadKeys.bind(self.store)),
         function(keys, next) {
             next(null, _.flatten(keys));
         }
@@ -205,7 +207,7 @@ Sevnup.prototype._handleRingStateChange = function _handleRingStateChange(arg, d
 Sevnup.prototype._forEachKeyInVNodesWithRetry = function _forEachKeyInVNodesWithRetry(retryErrors, vnodes, onKey, done) {
     var self = this;
 
-    async.eachLimit(vnodes, MAX_PARALLEL_TASKS, onVNode, done);
+    async.eachLimit(vnodes, self.maxConcurrencyLevel, onVNode, done);
 
     function onVNode(vnode, next) {
         async.waterfall([
@@ -218,7 +220,7 @@ Sevnup.prototype._forEachKeyInVNodesWithRetry = function _forEachKeyInVNodesWith
     }
 
     function onKeys(vnode, keys, next) {
-        async.eachLimit(keys, MAX_PARALLEL_TASKS, function _each(key, eachNext) {
+        async.eachLimit(keys, self.maxConcurrencyLevel, function _each(key, eachNext) {
             _tryWithRetry("onkey", self.keyRetryQueue, function _each(cb) {
                 // Instead of calling the key-handler directly, effectively chaining them
                 // we're enqueuing them instead
