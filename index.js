@@ -8,7 +8,10 @@ var CacheStore = require('./cache_store');
 var DEFAULT_TOTAL_VNODES = 1024;
 var DEFAULT_CALM_THRESHOLD = 500;
 var DEFAULT_RETRY_INTERVAL_MS = 5000;
-var MAX_PARALLEL_TASKS = 10;
+
+// We're setting a modest limit to make sure we're not starving the event-loop of CPU
+// with overly aggressive setting
+var DEFAULT_MAX_PARALLEL_TASKS = 2;
 
 /**
  * Params are:
@@ -36,6 +39,7 @@ function Sevnup(params) {
     this.watchMode = params.watchMode;
     this.running = true;
     this.retryIntervalMs = params.retryIntervalMs || DEFAULT_RETRY_INTERVAL_MS;
+    this.maxConcurrencyLevel = params.maxConcurrencyLevel || DEFAULT_MAX_PARALLEL_TASKS;
     this.retryRecoverOnFailure = params.retryRecoverOnFailure || false;
 
     this.ownedVNodes = [];
@@ -98,8 +102,9 @@ Sevnup.prototype.workCompleteOnKeyInVNode = function workCompleteOnKeyInVNode(ke
 };
 
 Sevnup.prototype.getOwnedKeys = function getOwnedKeys(done) {
+    var self = this;
     async.waterfall([
-        async.mapLimit.bind(async, this._getOwnedVNodes(), MAX_PARALLEL_TASKS, this.store.loadKeys.bind(this.store)),
+        async.mapLimit.bind(async, self._getOwnedVNodes(), self.maxConcurrencyLevel, self.store.loadKeys.bind(self.store)),
         function(keys, next) {
             next(null, _.flatten(keys));
         }
@@ -154,10 +159,15 @@ Sevnup.prototype._getOwnedVNodes = function _getOwnedVNodes() {
 
 Sevnup.prototype._onRingStateChange = function _onRingStateChange() {
     var self = this;
+
+    // This is ignored due to natural complexity of testing
+    // this
+    /* istanbul ignore next */
     if (!this.running) {
         // Shutdown
         return;
     }
+
     if (this.stateChangeQueue.length() > 0) {
         // Ring change already queued
         return;
@@ -175,7 +185,10 @@ Sevnup.prototype._onRingStateChange = function _onRingStateChange() {
 Sevnup.prototype._retryInQueue = function _retryInQueue(task, done) {
     this._withRetry(task.retryName, task.fn, function _retryDone() {
         task.cb.apply(task.cb, arguments);
-        done(); // Move the queue
+
+        // NOTE: This is a callback passed by `async.queue` it COULD NOT be
+        //       called synchronously
+        setImmediate(done);
     });
 };
 
@@ -204,12 +217,12 @@ Sevnup.prototype._handleRingStateChange = function _handleRingStateChange(arg, d
 Sevnup.prototype._forEachKeyInVNodesWithRetry = function _forEachKeyInVNodesWithRetry(retryErrors, vnodes, onKey, done) {
     var self = this;
 
-    async.eachSeries(vnodes, onVNode, done);
+    async.eachLimit(vnodes, self.maxConcurrencyLevel, onVNode, done);
 
     function onVNode(vnode, next) {
         async.waterfall([
             function _loadWithRetries(wNext) {
-                maybeWithRetry("loadkeys", self.loadKeyRetryQueue,
+                _tryWithRetry("loadkeys", self.loadKeyRetryQueue,
                     self.store.loadKeys.bind(self.store, vnode), wNext);
             },
             onKeys.bind(null, vnode),
@@ -217,14 +230,16 @@ Sevnup.prototype._forEachKeyInVNodesWithRetry = function _forEachKeyInVNodesWith
     }
 
     function onKeys(vnode, keys, next) {
-        async.eachLimit(keys, MAX_PARALLEL_TASKS, function _try(key, eNext) {
-            maybeWithRetry("onkey", self.keyRetryQueue, function _try(cb) {
-                onKey(vnode, key, cb);
-            }, eNext);
+        async.eachLimit(keys, self.maxConcurrencyLevel, function _each(key, eachNext) {
+            _tryWithRetry("onkey", self.keyRetryQueue, function _each(cb) {
+                // Instead of calling the key-handler directly, effectively chaining them
+                // we're enqueuing them instead
+                setImmediate(onKey, vnode, key, cb);
+            }, eachNext);
         }, next);
     }
 
-    function maybeWithRetry(retryName, queue, fn, cb) {
+    function _tryWithRetry(retryName, queue, fn, cb) {
         if (retryErrors) {
             self._doThenQueue(queue, {
                 retryName: retryName,
