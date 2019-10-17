@@ -159,10 +159,15 @@ Sevnup.prototype._getOwnedVNodes = function _getOwnedVNodes() {
 
 Sevnup.prototype._onRingStateChange = function _onRingStateChange() {
     var self = this;
+
+    // This is ignored due to natural complexity of testing
+    // this
+    /* istanbul ignore next */
     if (!this.running) {
         // Shutdown
         return;
     }
+
     if (this.stateChangeQueue.length() > 0) {
         // Ring change already queued
         return;
