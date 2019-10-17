@@ -220,7 +220,9 @@ Sevnup.prototype._forEachKeyInVNodesWithRetry = function _forEachKeyInVNodesWith
     function onKeys(vnode, keys, next) {
         async.eachLimit(keys, MAX_PARALLEL_TASKS, function _each(key, eachNext) {
             _tryWithRetry("onkey", self.keyRetryQueue, function _each(cb) {
-                onKey(vnode, key, cb);
+                // Instead of calling the key-handler directly, effectively chaining them
+                // we're enqueuing them instead
+                setImmediate(onKey, vnode, key, cb);
             }, eachNext);
         }, next);
     }
